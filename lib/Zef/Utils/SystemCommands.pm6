@@ -292,7 +292,7 @@ multi sub powershell-client(Zef::Uri::Http:D $url, IO() $save-to) {
                 }
             }
         >;
-    return proc(:cwd($*CWD.absolute), 'powershell', '-NoProfile', '-ExecutionPolicy', 'unrestricted', 'Invoke-Command', '-ScriptBlock', '{'~$script~'}', '-ArgumentList', qq|"{$url}","{$save-to.absolute}","{$USERAGENT}"|);
+    return quiet-proc(:$cwd, 'powershell', '-NoProfile', '-ExecutionPolicy', 'unrestricted', 'Invoke-Command', '-ScriptBlock', '{'~$script~'}', '-ArgumentList', qq|"{$url}","{$save-to.absolute()}","{$USERAGENT}"|);
 }
 
 our proto sub powershell-unzip(|)  is export(:powershell) {*}
@@ -309,7 +309,7 @@ multi sub powershell-unzip(IO() $archive-file, IO() $extract-to) {
             $to = $shell.NameSpace($out)
             $to.CopyHere($items, 0x14)
         >;
-    return proc(:$cwd, 'powershell', '-NoProfile', '-ExecutionPolicy', 'unrestricted', 'Invoke-Command', '-ScriptBlock', '{'~$script~'}', '-ArgumentList', qq|"{$archive-file.basename}","{$extract-to.absolute}"|);
+    return quiet-proc(:$cwd, 'powershell', '-NoProfile', '-ExecutionPolicy', 'unrestricted', 'Invoke-Command', '-ScriptBlock', '{'~$script~'}', '-ArgumentList', qq|"{$archive-file.basename()}","{$extract-to.absolute()}"|);
 }
 
 our proto sub powershell-unzip-list(|) is export(:powershell) {*}
@@ -317,7 +317,7 @@ multi sub powershell-unzip-list(IO() $archive-file) {
     my $cwd := $archive-file.parent;
     my $script = q<
             Param (
-                [Parameter(Mandatory=$True)] [string]$FilePath,
+                [Parameter(Mandatory=$True)] [string]$FilePath
             )
             $shell = New-Object -com shell.application
             $FilePath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($FilePath)
@@ -340,7 +340,7 @@ multi sub powershell-unzip-list(IO() $archive-file) {
             List-ZipFiles $path
         >;
 
-    with proc('powershell', '-NoProfile', '-ExecutionPolicy', 'unrestricted', 'Invoke-Command', '-ScriptBlock', '{'~$script~'}', '-ArgumentList', qq|"$archive-file.basename"|) {
+    with proc('powershell', '-NoProfile', '-ExecutionPolicy', 'unrestricted', 'Invoke-Command', '-ScriptBlock', '{'~$script~'}', '-ArgumentList', qq|"$archive-file.absolute()"|) {
         my $promise = Promise.new;
         my $output = Buf.new;
         react {
