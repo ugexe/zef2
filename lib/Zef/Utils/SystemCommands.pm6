@@ -178,6 +178,9 @@ multi sub p5tar-list(IO() $archive-file) {
 
 
 # [git]
+# TODO: the git-fu for most of these could be improved. FWIW these essentially treat each repo
+# as a single revision, e.g. we make a new clone for any revision so that there is less chance
+# the repo state gets changed unexpectedly (we really want shallow clones of specific commits I think?)
 our sub has-git is export { once { so try quiet-proc('git', '--help').result } }
 sub git-repo-uri(Str() $uri) { with $uri.split(/\.git[\/]?/, :v) { .elems == 1 ?? ~$_ !! .elems == 2 ?? $_.join !! $_.head(*-1).join } }
 sub git-checkout-name(Str() $uri) { with $uri.split(/\.git[\/]?/, :v) { ~($_.tail.match(/\@(.*)[\/|\@|\?|\#]?/)[0] // 'HEAD') } }
@@ -223,10 +226,14 @@ multi sub git-rev-parse(IO() $repo-path) {
 }
 
 our proto sub git-ls-tree(|) is export(:git) {*}
-multi sub git-ls-tree(IO() $repo-path) {
+multi sub git-ls-tree(IO() $repo-path, $sha1?) {
     my $cwd := $repo-path.absolute;
 
-    with proc('git', 'ls-tree', '-r', '--name-only', git-checkout-name($repo-path)) {
+    await git-fetch( $repo-path );
+
+    my $rev-sha1 = $sha1 // git-rev-parse( $repo-path ).result.head;
+
+    with proc('git', 'ls-tree', '-r', '--name-only', $rev-sha1) {
         my $promise = Promise.new;
         my $output = Buf.new;
         react {

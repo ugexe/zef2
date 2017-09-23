@@ -26,37 +26,70 @@ if has-git() {
     }
 
     subtest 'git - specific revisions' => {
-        my $rev1-sha1 = '51d85bd0a97d54235c0de624bf0577655348c38b';
-        my $rev2-sha1 = '1b221c1d0946ff91f4a1c612153ed4d974aa7351';
-        my $git-url-rev1 = "https://github.com/ugexe/Perl6-Net--HTTP.git@rev1-sha1";
-        my $git-url-rev2 = "https://github.com/ugexe/Perl6-Net--HTTP.git@$rev2-sha1";
+        my $rev1-sha1 = 'd2349d19404bbc9a5bc1e09c460b5c45af813799'; # META.info  / v0.0.4
+        my $rev2-sha1 = 'de2637881b763094b3eebea713b076eac4e6316b'; # META6.json / v0.0.5
+        my $git-url-rev1 = "https://github.com/ugexe/P6TCI.git@rev1-sha1";
+        my $git-url-rev2 = "https://github.com/ugexe/P6TCI.git@$rev2-sha1";
 
-        my $archive-path-rev1 = temp-path();
-        my $archive-path-rev2 = temp-path(); 
-        await git-clone($git-url-rev1, $archive-path-rev1);
-        await git-clone($git-url-rev2, $archive-path-rev2);
-        ok $archive-path-rev1.child('META6.json').f;
-        ok $archive-path-rev2.child('META6.json').f;
+        # This exists so FETCH can "download" a repo, which can later have
+        # LS-FILE/EXTRACT called on it without keeping track of the revision.
+        subtest 'pass/save revision to checkout in repo path - git-ls-tree(2)/git-extract(2)' => {
+            my $archive-path-rev1 = temp-path("@$rev1-sha1");
+            my $archive-path-rev2 = temp-path("@$rev2-sha1");
+            ok git-clone($git-url-rev1, $archive-path-rev1).result;
+            ok git-clone($git-url-rev2, $archive-path-rev2).result;
 
-        my $extract-to-rev1 = temp-path() andthen *.mkdir;
-        my $extract-to-rev2 = temp-path() andthen *.mkdir;
+            my $extract-to-rev1 = temp-path() andthen *.mkdir;
+            my $extract-to-rev2 = temp-path() andthen *.mkdir;
 
-        ok git-ls-tree($archive-path-rev1).result.first(*.ends-with('META6.json'));
-        # todo: test for changes in files between $some-revision and HEAD, like META.info -> META6.json
-        ok git-ls-tree($archive-path-rev2).result.first(*.ends-with('META6.json'));
+            ok git-ls-tree($archive-path-rev1).result.first(*.ends-with('META.info'));
+            ok git-ls-tree($archive-path-rev2).result.first(*.ends-with('META6.json'));
 
-        await git-extract($archive-path-rev1, $extract-to-rev1, $rev1-sha1);
-        await git-extract($archive-path-rev2, $extract-to-rev2, $rev2-sha1);
+            ok git-extract($archive-path-rev1, $extract-to-rev1).result;
+            ok git-extract($archive-path-rev2, $extract-to-rev2).result;
 
-        ok $extract-to-rev1.e;
-        is $extract-to-rev1.dir.elems, 1;
-        ok $extract-to-rev1.dir.first(*.d).child('META6.json').f;
-        is to-json($extract-to-rev1.dir.first(*.d).child('META6.json').slurp)<version>, '0.0.5';
+            ok $extract-to-rev1.e;
+            is $extract-to-rev1.dir.elems, 1;
+            ok $extract-to-rev1.dir.first(*.d).child('META.info').f;
+            nok $extract-to-rev1.dir.first(*.d).child('META6.json').f;
+            is to-json($extract-to-rev1.dir.first(*.d).child('META.info').slurp)<version>, '0.0.4';
 
-        ok $extract-to-rev2.e;
-        is $extract-to-rev2.dir.elems, 1;
-        ok $extract-to-rev2.dir.first(*.d).child('META6.json').f;
-        is to-json($extract-to-rev2.dir.first(*.d).child('META6.json').slurp)<version>, '0.0.4';
+            ok $extract-to-rev2.e;
+            is $extract-to-rev2.dir.elems, 1;
+            ok $extract-to-rev2.dir.first(*.d).child('META6.json').f;
+            nok $extract-to-rev2.dir.first(*.d).child('META.info').f;
+            is to-json($extract-to-rev2.dir.first(*.d).child('META6.json').slurp)<version>, '0.0.5';
+        }
+
+        # ...although realistically it would be better if we could force passing around the revision explicitly
+        # via git-ls-tree(3)/git-extract(3) instead of implicitly via paths as with git-ls-tree(2)/git-extract(2).
+        subtest 'pass revision to checkout as parameter - git-ls-tree(3)/git-extract(3)' => {
+            my $archive-path-rev1 = temp-path();
+            my $archive-path-rev2 = temp-path();
+            ok git-clone($git-url-rev1, $archive-path-rev1).result;
+            ok git-clone($git-url-rev2, $archive-path-rev2).result;
+
+            my $extract-to-rev1 = temp-path() andthen *.mkdir;
+            my $extract-to-rev2 = temp-path() andthen *.mkdir;
+
+            ok git-ls-tree($archive-path-rev1, $rev1-sha1).result.first(*.ends-with('META.info'));
+            ok git-ls-tree($archive-path-rev2, $rev2-sha1).result.first(*.ends-with('META6.json'));
+
+            ok git-extract($archive-path-rev1, $extract-to-rev1, $rev1-sha1).result;
+            ok git-extract($archive-path-rev2, $extract-to-rev2, $rev2-sha1).result;
+
+            ok $extract-to-rev1.e;
+            is $extract-to-rev1.dir.elems, 1;
+            ok $extract-to-rev1.dir.first(*.d).child('META.info').f;
+            nok $extract-to-rev1.dir.first(*.d).child('META6.json').f;
+            is to-json($extract-to-rev1.dir.first(*.d).child('META.info').slurp)<version>, '0.0.4';
+
+            ok $extract-to-rev2.e;
+            is $extract-to-rev2.dir.elems, 1;
+            ok $extract-to-rev2.dir.first(*.d).child('META6.json').f;
+            nok $extract-to-rev2.dir.first(*.d).child('META.info').f;
+            is to-json($extract-to-rev2.dir.first(*.d).child('META6.json').slurp)<version>, '0.0.5';
+        }
     }
 }
 
