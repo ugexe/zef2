@@ -164,5 +164,6 @@ subtest {
 
 try rmdir($save-to);
 
+#TODO: test temp-path()
 
 done-testing;

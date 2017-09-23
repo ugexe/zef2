@@ -46,9 +46,17 @@ sub delete-paths(IO() $path, Bool :$d = True, Bool :$f = True, Bool :$r = True, 
     }
 }
 
+# Returned path is not created (thats for the user to do) so it can be used as a file or directory.
+# Will attempt to create parent path if it does not exist.
+sub temp-path(Str() $postfix = '') is export {
+    my $path = $*TMPDIR.child("{time}.{$*PID}/{(^100000).pick}{$postfix}") andthen *.parent.mkdir;
+    END { try delete-paths($path, :r, :d, :f, :dot) }
+    return $path;
+}
+
 sub lock-file-protect($path, &code, Bool :$shared = False) is export {
     do given ($shared ?? $path.IO.open(:r) !! $path.IO.open(:w)) {
-        LEAVE {.close}
+        LEAVE {try .close}
         LEAVE {try .path.unlink}
         .lock(:$shared);
         code();
