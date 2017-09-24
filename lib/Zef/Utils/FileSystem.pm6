@@ -49,7 +49,12 @@ sub delete-paths(IO() $path, Bool :$d = True, Bool :$f = True, Bool :$r = True, 
 # Returned path is not created (thats for the user to do) so it can be used as a file or directory.
 # Will attempt to create parent path if it does not exist.
 sub temp-path(Str() $postfix = '') is export {
-    my $path = $*TMPDIR.child("{time}.{$*PID}/{(^100000).pick}{$postfix}") andthen *.parent.mkdir;
+    my $path;
+    for ^1000 {
+        my $dir = $*TMPDIR.child("{time}.{$*PID}.{$_}");
+        $path = $dir.child("{(^100000).pick}{$postfix}");
+        last unless !$dir.e && $dir.mkdir;
+    }
     END { try delete-paths($path, :r, :d, :f, :dot) }
     return $path;
 }

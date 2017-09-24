@@ -24,6 +24,21 @@ subtest 'Basic uri fetch/list/extract' => {
         my $extracted-to = EXTRACT($saved-to, temp-path()).result;
         is $extracted-to.dir.elems, 1, 'Expected number of paths found in root of extracted target directory';
         ok $extracted-to.dir.first(*.d).child('META6.json').f, "EXTRACT $saved-to -> $extracted-to";
+
+        # Cheat and do the local path variant of FETCH from Zef::Utils::FileSystem
+        once {
+            my $uri = $extracted-to;
+            temp $saved-to = FETCH($uri, temp-path().child($uri.basename)).result;
+            ok $saved-to.e, "FETCH $uri -> $saved-to";
+
+            temp @extractable-paths = PATHS($saved-to).result;
+            ok @extractable-paths.first(*.ends-with('META6.json'));
+
+            my $extract-to = temp-path('/' ~ $saved-to.basename);
+            temp $extracted-to = EXTRACT($saved-to, temp-path($extract-to.basename)).result;
+            is $extracted-to.dir.elems, 1, 'Expected number of paths found in root of extracted target directory';
+            ok $extracted-to.dir.first(*.d).child('META6.json').f, "EXTRACT $saved-to -> $extracted-to";
+        }
     }
 }
 

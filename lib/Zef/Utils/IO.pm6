@@ -3,7 +3,6 @@ unit module Zef::Utils::IO;
 use Zef::Utils::SystemCommands;
 use Zef::Utils::FileSystem;
 
-# todo: a more pluggable registry for system commands
 
 our sub FETCH(*@_ [Str() $uri, IO() $save-to]) is export {
     die "target download directory {$save-to.parent} does not exist and could not be created"
@@ -25,6 +24,9 @@ our sub FETCH(*@_ [Str() $uri, IO() $save-to]) is export {
         when Zef::Uri::Http {
             proceed unless has-powershell();
             &Zef::Utils::SystemCommands::powershell-download(|@_)
+        }
+        when *.IO.e {
+            start { copy-paths(|@_) }
         }
         default {
             die "Don't know how to fetch $uri";
@@ -61,6 +63,9 @@ our sub EXTRACT(*@_ [IO() $archive, IO() $extract-to]) is export {
             proceed unless has-powershell();
             &Zef::Utils::SystemCommands::powershell-unzip(|@_)
         }
+        when *.IO.e {
+            start { copy-paths(|@_) }
+        }
         default {
             die "Failed to extract $archive to $extract-to";
         }
@@ -93,6 +98,9 @@ our sub PATHS(*@_ [IO() $path]) is export {
         when Zef::Uri::Zip {
             proceed unless has-powershell();
             &Zef::Utils::SystemCommands::powershell-unzip-list(|@_)
+        }
+        when *.IO.e {
+            start { list-paths(|@_) }
         }
         default {
             die "Failed to determine a file listing from $path";
