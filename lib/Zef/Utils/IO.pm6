@@ -12,7 +12,7 @@ our sub FETCH(*@_ [Str() $uri, IO() $save-to]) is export {
     my $promise = do given $uri {
         when Zef::Uri::Git {
             proceed unless has-git();
-            &Zef::Utils::SystemCommands::git-clone(|@_)
+            &Zef::Utils::SystemCommands::git-download(|@_)
         }
         when Zef::Uri::Http {
             proceed unless has-curl();
@@ -24,7 +24,7 @@ our sub FETCH(*@_ [Str() $uri, IO() $save-to]) is export {
         }
         when Zef::Uri::Http {
             proceed unless has-powershell();
-            &Zef::Utils::SystemCommands::powershell-client(|@_)          
+            &Zef::Utils::SystemCommands::powershell-download(|@_)
         }
         default {
             die "Don't know how to fetch $uri";
@@ -69,14 +69,14 @@ our sub EXTRACT(*@_ [IO() $archive, IO() $extract-to]) is export {
     $promise.then: { $extract-to.e ?? $extract-to !! die($_) }
 }
 
-our sub LS-FILES(*@_ [IO() $path]) is export {
+our sub PATHS(*@_ [IO() $path]) is export {
     die "target path $path does not exist"
         unless $path.e;
 
     my $promise = do given $path {
         when Zef::Uri::Git::Local {
             proceed unless has-git();
-            &Zef::Utils::SystemCommands::git-ls-tree(|@_)
+            &Zef::Utils::SystemCommands::git-list-files(|@_)
         }
         when Zef::Uri::Tar {
             proceed unless has-tar();

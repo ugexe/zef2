@@ -18,7 +18,7 @@ subtest 'Basic uri fetch/list/extract' => {
         my $saved-to = FETCH($url, temp-path().child($url.IO.basename)).result;
         ok $saved-to.e, "FETCH $url -> $saved-to";
 
-        my @extractable-paths = LS-FILES($saved-to).result;
+        my @extractable-paths = PATHS($saved-to).result;
         ok @extractable-paths.first(*.ends-with('META6.json'));
 
         my $extracted-to = EXTRACT($saved-to, temp-path()).result;
@@ -32,7 +32,7 @@ subtest 'Ensure FETCH/EXTRACT handle git revisions correct' => {
         my $saved-to = FETCH($url, temp-path().child($url.IO.basename)).result;
         ok $saved-to.e;
 
-        my @extractable-paths = LS-FILES($saved-to).result;
+        my @extractable-paths = PATHS($saved-to).result;
         ok @extractable-paths.first(*.ends-with('META6.json'));
 
         my $extracted-to = EXTRACT($saved-to, temp-path()).result;

@@ -14,9 +14,9 @@ my $zip-url  = 'https://github.com/ugexe/P6TCI/archive/master.zip';
 if has-git() {
     subtest 'git - basic' => {
         my $archive-path = temp-path(); # a directory, so don't add ext
-        await git-clone($git-url, $archive-path);
+        await git-download($git-url, $archive-path);
         ok $archive-path.child('META6.json').f;
-        ok git-ls-tree($archive-path).result.first(*.ends-with('META6.json'));
+        ok git-list-files($archive-path).result.first(*.ends-with('META6.json'));
 
         my $extract-to = temp-path() andthen *.mkdir;
         await git-extract($archive-path, $extract-to);
@@ -32,18 +32,18 @@ if has-git() {
         my $git-url-rev2 = "https://github.com/ugexe/P6TCI.git@$rev2-sha1";
 
         # This exists so FETCH can "download" a repo, which can later have
-        # LS-FILE/EXTRACT called on it without keeping track of the revision.
-        subtest 'pass/save revision to checkout in repo path - git-ls-tree(2)/git-extract(2)' => {
+        # PATHS/EXTRACT called on it without keeping track of the revision.
+        subtest 'pass/save revision to checkout in repo path - git-list-files(1)/git-extract(2)' => {
             my $archive-path-rev1 = temp-path("@$rev1-sha1");
             my $archive-path-rev2 = temp-path("@$rev2-sha1");
-            ok git-clone($git-url-rev1, $archive-path-rev1).result;
-            ok git-clone($git-url-rev2, $archive-path-rev2).result;
+            ok git-download($git-url-rev1, $archive-path-rev1).result;
+            ok git-download($git-url-rev2, $archive-path-rev2).result;
 
             my $extract-to-rev1 = temp-path() andthen *.mkdir;
             my $extract-to-rev2 = temp-path() andthen *.mkdir;
 
-            ok git-ls-tree($archive-path-rev1).result.first(*.ends-with('META.info'));
-            ok git-ls-tree($archive-path-rev2).result.first(*.ends-with('META6.json'));
+            ok git-list-files($archive-path-rev1).result.first(*.ends-with('META.info'));
+            ok git-list-files($archive-path-rev2).result.first(*.ends-with('META6.json'));
 
             ok git-extract($archive-path-rev1, $extract-to-rev1).result;
             ok git-extract($archive-path-rev2, $extract-to-rev2).result;
@@ -62,18 +62,18 @@ if has-git() {
         }
 
         # ...although realistically it would be better if we could force passing around the revision explicitly
-        # via git-ls-tree(3)/git-extract(3) instead of implicitly via paths as with git-ls-tree(2)/git-extract(2).
-        subtest 'pass revision to checkout as parameter - git-ls-tree(3)/git-extract(3)' => {
+        # via git-list-files(3)/git-extract(3) instead of implicitly via paths as with git-list-files(2)/git-extract(2).
+        subtest 'pass revision to checkout as parameter - git-list-files(2)/git-extract(3)' => {
             my $archive-path-rev1 = temp-path();
             my $archive-path-rev2 = temp-path();
-            ok git-clone($git-url-rev1, $archive-path-rev1).result;
-            ok git-clone($git-url-rev2, $archive-path-rev2).result;
+            ok git-download($git-url-rev1, $archive-path-rev1).result;
+            ok git-download($git-url-rev2, $archive-path-rev2).result;
 
             my $extract-to-rev1 = temp-path() andthen *.mkdir;
             my $extract-to-rev2 = temp-path() andthen *.mkdir;
 
-            ok git-ls-tree($archive-path-rev1, $rev1-sha1).result.first(*.ends-with('META.info'));
-            ok git-ls-tree($archive-path-rev2, $rev2-sha1).result.first(*.ends-with('META6.json'));
+            ok git-list-files($archive-path-rev1, $rev1-sha1).result.first(*.ends-with('META.info'));
+            ok git-list-files($archive-path-rev2, $rev2-sha1).result.first(*.ends-with('META6.json'));
 
             ok git-extract($archive-path-rev1, $extract-to-rev1, $rev1-sha1).result;
             ok git-extract($archive-path-rev2, $extract-to-rev2, $rev2-sha1).result;
@@ -149,15 +149,15 @@ if has-wget() && has-unzip() {
 
 if has-powershell() {
     subtest 'powershell' => {
-        subtest 'powershell-client' => {
+        subtest 'powershell-download' => {
             my $path = temp-path('.json');
-            ok powershell-client($http-url, $path).so;
+            ok powershell-download($http-url, $path).so;
             ok $path.slurp.&to-json<user-agent> ~~ /:i rakudo/;
         }
 
         subtest 'powershell-unzip' => {
             my $archive-path = temp-path('.zip');
-            await powershell-client($zip-url, $archive-path);
+            await powershell-download($zip-url, $archive-path);
             ok powershell-unzip-list($archive-path).result.first(*.ends-with('META6.json'));
 
             my $extract-to = temp-path() andthen *.mkdir;
@@ -170,7 +170,7 @@ if has-powershell() {
         if has-unzip() {
             subtest 'unzip' => {
                 my $archive-path = temp-path('.zip');
-                await powershell-client($zip-url, $archive-path);
+                await powershell-download($zip-url, $archive-path);
                 ok unzip-list($archive-path).result.first(*.ends-with('META6.json'));
 
                 my $extract-to = temp-path() andthen *.mkdir;
@@ -184,7 +184,7 @@ if has-powershell() {
         if has-tar() {
             subtest 'tar' => {
                 my $archive-path = temp-path('.tar.gz');
-                await powershell-client($tar-url, $archive-path);
+                await powershell-download($tar-url, $archive-path);
                 ok tar-list($archive-path).result.first(*.ends-with('META6.json'));
 
                 my $extract-to = temp-path() andthen *.mkdir;
@@ -198,7 +198,7 @@ if has-powershell() {
         if has-p5tar() {
             subtest 'p5tar' => {
                 my $archive-path = temp-path('.tar.gz');
-                await powershell-client($tar-url, $archive-path);
+                await powershell-download($tar-url, $archive-path);
                 ok p5tar-list($archive-path).result.first(*.ends-with('META6.json'));
 
                 my $extract-to = temp-path() andthen *.mkdir;

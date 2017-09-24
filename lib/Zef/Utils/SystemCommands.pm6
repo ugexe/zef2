@@ -5,7 +5,6 @@ unit module Zef::Utils::SystemCommands;
 # XXX: spaces break win32http.ps1 when launced via Proc::Async
 my $USERAGENT = "zef/{$*PERL.compiler}/{$*PERL.compiler.version}";
 
-
 # Some boilerplate for spawning processes
 my sub proc(*@_ [$command, *@rest], *%_ [:CWD(:$cwd), :ENV(:%env), *%]) {
     my @invoke-with = (BEGIN $*DISTRO.is-win)
@@ -185,54 +184,38 @@ our sub has-git is export { once { so try quiet-proc('git', '--help').result } }
 sub git-repo-uri(Str() $uri) { with $uri.split(/\.git[\/]?/, :v) { .elems == 1 ?? ~$_ !! .elems == 2 ?? $_.join !! $_.head(*-1).join } }
 sub git-checkout-name(Str() $uri) { with $uri.split(/\.git[\/]?/, :v) { ~($_.tail.match(/\@(.*)[\/|\@|\?|\#]?/)[0] // 'HEAD') } }
 
-our proto sub git-clone(|) is export(:git) {*}
-multi sub git-clone(Zef::Uri::Git:D $url, IO() $save-to) {
+# commands that get used for git-download, git-extract, git-list-files
+my sub git-clone($url, IO() $save-to) {
     my $cwd := $save-to.parent;
-    return quiet-proc(:$cwd, 'git', 'clone', git-repo-uri( $url ), $save-to.basename, '--quiet');
+    return quiet-proc(:$cwd, 'git', 'clone', $url, $save-to.basename, '--quiet');
 }
-
-our proto sub git-pull(|) is export(:git) {*}
-multi sub git-pull(IO() $repo-path) {
+my sub git-pull(IO() $repo-path) {
     my $cwd := $repo-path.absolute;
     return quiet-proc(:$cwd, 'git', 'pull', '--quiet');
 }
-
-our proto sub git-fetch(|) is export(:git) {*}
-multi sub git-fetch(IO() $repo-path) {
+my sub git-fetch(IO() $repo-path) {
     my $cwd := $repo-path.absolute;
     return quiet-proc(:$cwd, 'git', 'fetch', '--quiet');
 }
-
-our proto sub git-checkout(|) is export(:git) {*}
-multi sub git-checkout(IO() $repo-path, IO() $extract-to, $id) {
+my sub git-checkout(IO() $repo-path, IO() $extract-to, $id) {
     my $cwd := $repo-path.absolute;
     return quiet-proc(:$cwd, 'git', '--work-tree', $extract-to.absolute, 'checkout', $id, '.');
 }
-
-our proto sub git-rev-parse(|) is export(:git) {*}
-multi sub git-rev-parse(IO() $repo-path) {
+my sub git-rev-parse(IO() $repo-path) {
     my $cwd := $repo-path.absolute;
-
     with proc('git', 'rev-parse', git-checkout-name($repo-path)) {
         my $promise = Promise.new;
         my $output = Buf.new;
         react {
             whenever .stdout(:bin) { $output.append($_) if .defined }
             whenever .stderr(:bin) { }
-            whenever .start(:$cwd) { .so ?? $promise.keep($output.decode.lines) !! $promise.break($_) }
+            whenever .start(:$cwd) { .so ?? $promise.keep($output.decode.lines.head) !! $promise.break($_) }
         }
         return $promise;
     }
 }
-
-our proto sub git-ls-tree(|) is export(:git) {*}
-multi sub git-ls-tree(IO() $repo-path, $sha1?) {
+my sub git-ls-tree(IO() $repo-path, $rev-sha1) {
     my $cwd := $repo-path.absolute;
-
-    await git-fetch( $repo-path );
-
-    my $rev-sha1 = $sha1 // git-rev-parse( $repo-path ).result.head;
-
     with proc('git', 'ls-tree', '-r', '--name-only', $rev-sha1) {
         my $promise = Promise.new;
         my $output = Buf.new;
@@ -245,15 +228,28 @@ multi sub git-ls-tree(IO() $repo-path, $sha1?) {
     }
 }
 
-# combines the git commands to do what we consider an extract
+# The git-style interfaces we -do- provide makes some assumptions about what we want to do
+# and is primarily so we can work with extended git urls that include commits/revisions.
+
+# FETCH
+our proto git-download(|) is export(:git) {*}
+multi sub git-download(Zef::Uri::Git:D $url, IO() $save-to, $sha1?) {
+    await git-clone(git-repo-uri($url), $save-to);
+    return git-fetch( $save-to );
+}
+
+# EXTRACT
 our proto git-extract(|) is export(:git) {*}
-multi sub git-extract(IO() $repo-path, IO() $extract-to, $sha1?) {
+multi sub git-extract(IO() $repo-path, IO() $extract-to) {
+    my $sha1 = git-rev-parse( $repo-path ).result;
+    samewith($repo-path, $extract-to, $sha1)
+}
+multi sub git-extract(IO() $repo-path, IO() $extract-to, $rev-sha1) {
     die "target repo directory {$repo-path.absolute} does not contain a .git/ folder"
         unless $repo-path.child('.git').d;
 
     await git-fetch( $repo-path );
 
-    my $rev-sha1 = $sha1 // git-rev-parse( $repo-path ).result.head;
     my $checkout-to = $extract-to.child($rev-sha1);
     die "target repo directory {$extract-to.absolute} does not exist and could not be created"
         unless ($checkout-to.e && $checkout-to.d) || mkdir($checkout-to);
@@ -261,12 +257,27 @@ multi sub git-extract(IO() $repo-path, IO() $extract-to, $sha1?) {
     return git-checkout($repo-path, $checkout-to, $rev-sha1);
 }
 
+# LIST-FILES
+our proto git-list-files(|) is export(:git) {*}
+multi sub git-list-files(IO() $repo-path) {
+    my $sha1 = git-rev-parse( $repo-path ).result;
+    samewith($repo-path, $sha1)
+}
+multi sub git-list-files(IO() $repo-path, IO() $rev-sha1) {
+    die "target repo directory {$repo-path.absolute} does not contain a .git/ folder"
+        unless $repo-path.child('.git').d;
+
+    await git-fetch( $repo-path );
+
+    return git-ls-tree($repo-path, $rev-sha1);
+}
+
 
 # [powershell]
 our sub has-powershell is export { once { so try quiet-proc('powershell', '-help').result } }
 
-our proto sub powershell-client(|) is export(:powershell) {*}
-multi sub powershell-client(Zef::Uri::Http:D $url, IO() $save-to) {
+our proto sub powershell-download(|) is export(:powershell) {*}
+multi sub powershell-download(Zef::Uri::Http:D $url, IO() $save-to) {
     my $cwd := $save-to.parent;
     my $script = q<
             Param (
@@ -302,7 +313,7 @@ multi sub powershell-client(Zef::Uri::Http:D $url, IO() $save-to) {
     return quiet-proc(:$cwd, 'powershell', '-NoProfile', '-ExecutionPolicy', 'unrestricted', 'Invoke-Command', '-ScriptBlock', '{'~$script~'}', '-ArgumentList', qq|"{$url}","{$save-to.absolute()}","{$USERAGENT}"|);
 }
 
-our proto sub powershell-unzip(|)  is export(:powershell) {*}
+our proto sub powershell-unzip(|) is export(:powershell) {*}
 multi sub powershell-unzip(IO() $archive-file, IO() $extract-to) {
     my $cwd := $archive-file.parent;
     my $script = q<
