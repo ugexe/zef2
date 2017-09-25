@@ -214,7 +214,6 @@ if has-powershell() {
 if has-tput() {
     subtest 'tput' => {
         my $cols = tput-cols().result;
-        note $cols.WHAT;
         ok $cols ~~ Int;
         ok $cols > -1;
     }

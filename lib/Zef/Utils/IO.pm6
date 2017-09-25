@@ -3,6 +3,16 @@ unit module Zef::Utils::IO;
 use Zef::Utils::SystemCommands;
 use Zef::Utils::FileSystem;
 
+# Provides the heuristic based build routines zef uses internally.
+# Previously this was done inside a factory class/plugin, but for
+# non-internal use (such as a Build.pm that just wants to fetch or
+# extract some files with little/no dependencies) required some
+# config setup.
+#
+# The Zef::Utils::FileSystem codepaths are technically redundant - FETCH/EXTRACT
+# on a path would just copy it twice. Internally elsewhere we would check first
+# if we -need- to fetch or extract something because calling them. This allows
+# the simple FETCH/EXTRACT/PATH api to remain consistent in acting like an IO::Any.
 
 our sub FETCH(*@_ [Str() $uri, IO() $save-to]) is export {
     die "target download directory {$save-to.parent} does not exist and could not be created"

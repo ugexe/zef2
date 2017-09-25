@@ -26,6 +26,28 @@ subtest 'from/to-depspec' => {
         is to-depspec(%hashspec), $longspec;
     }
 
+    subtest 'apostrophy variants' => {
+        subtest 'Foo::Bar-Baz:api<2>:auth<foo@cpan.org>:ver<3>' => {
+            my $shortspec = 'Foo::Bar-Baz:api<2>:auth<foo@cpan.org>:ver<3>';
+            my $longspec  = 'Foo::Bar-Baz:api<2>:auth<foo@cpan.org>:ver<3>';
+            my %hashspec  = %( :name<Foo::Bar-Baz>, :ver('3'), :api('2'), :auth<foo@cpan.org> );
+
+            is-deeply from-depspec($shortspec), %hashspec;
+            is-deeply from-depspec($longspec), %hashspec;
+            is to-depspec(%hashspec), $longspec;
+        }
+
+        subtest q|Foo::Bar'Baz:api<2>:auth<foo@cpan.org>:ver<3>| => {
+            my $shortspec = q|Foo::Bar'Baz:api<2>:auth<foo@cpan.org>:ver<3>|;
+            my $longspec  = q|Foo::Bar'Baz:api<2>:auth<foo@cpan.org>:ver<3>|;
+            my %hashspec  = %( :name<Foo::Bar'Baz>, :ver('3'), :api('2'), :auth<foo@cpan.org> );
+
+            is-deeply from-depspec($shortspec), %hashspec;
+            is-deeply from-depspec($longspec), %hashspec;
+            is to-depspec(%hashspec), $longspec;
+        }
+    }
+
     # Make sure $shortspec roundtrips back to :ver<> not :version<>, and that leading 'v' is stripped
     subtest 'Foo:version<v1>' => {
         my $shortspec = 'Foo:version<v1>';
@@ -34,6 +56,13 @@ subtest 'from/to-depspec' => {
 
         is-deeply from-depspec($shortspec), %hashspec;
         is-deeply from-depspec($longspec), %hashspec;
+        is to-depspec(%hashspec), $longspec;
+    }
+
+    subtest 'Multi-level depspec hash' => {
+        my $longspec  = 'Foo::Bar:api<*>:auth<>:ver<*>';
+        my %hashspec  = %( :name<Foo::Bar>, :ver('*'), :baz(:baz1(1), :baz2(2)) );
+
         is to-depspec(%hashspec), $longspec;
     }
 
@@ -50,10 +79,12 @@ subtest 'from/to-depspec' => {
         nok from-depspec('Foo::Bar:ver');
         nok from-depspec('Foo::Bar:ver:auth<foo>');
         nok from-depspec('Foo::Bar:ver<1>::auth<foo>');
-
-        todo 'Make depspec grammar more restrictive', 2;
         nok from-depspec('1');
-        nok from-depspec('A::1');
+        nok from-depspec('Foo::1');
+        nok from-depspec('-Foo::Bar');
+        nok from-depspec('Foo::-Bar');
+        nok from-depspec(q|'Foo::Bar|);
+        nok from-depspec(q|Foo::'Bar|);
     }
 }
 

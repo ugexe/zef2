@@ -1,12 +1,20 @@
 unit module Zef::Utils::Distribution;
 
+# Provides distribution related routines, typically related to identity
+# and meta data generation. This is separate from any Distribution
+# class/role because we sometimes want to avoid creating an entire
+# Distribution object just to check identity related items (and because
+# the rest of the stuff is common to most Distribution implementations).
+
 my grammar DepSpec::Grammar {
     regex TOP { ^^ <name> [':' <key> <value>]* $$ }
 
-    regex name  { <-restricted>+ ['::' <-restricted>+]* }
+    regex name  { <.ident> ['::' <.ident>]* }
     token key   { <-restricted>+ }
     token value { '<' ~ '>'  [<( [[ <!before \>|\\> . ]+]* % ['\\' . ] )>] }
 
+    token ident { <.alpha> [<.alnum> [<.apostrophe> <.alnum>]?]* }
+    token apostrophe { ["'" | '-'] }
     token restricted { [':' | '<' | '>' | '(' | ')'] }
 }
 
@@ -87,17 +95,20 @@ multi sub depspec-match(%spec, %query-spec, |c) {
 
 # hash to depspec string
 our sub to-depspec(%_ --> Str) is export {
-    my %spec = normalize-depspec-hash(%_);
+    # ignore any nested structures (e.g. dependency hints)
+    my %spec = normalize-depspec-hash(%_.grep({ .values.all ~~ Str|Numeric }).hash);
 
     # create string based on sorted keys, but always put 'name' first
-    my $str  = %spec.keys.sort.sort({$^a ne 'name'}).map({ $_ eq 'name' ?? %spec{$_} !! ":{$_}<{%spec<< $_ >>}>" }).join;
-    return $str;
+    my $sorted-first-level := %spec.keys.sort.sort: { $^a ne 'name' }
+    my $str-parts := $sorted-first-level.map({ $_ eq 'name' ?? %spec{$_} !! ":{$_}<{%spec<< $_ >>}>" });
+
+    return $str-parts.join;
 }
 
 # depspec string to hash
 our sub from-depspec(Str $identity --> Hash) is export {
-    my $parsed = DepSpec::Grammar.parse($identity, :actions(DepSpec::Actions.new))
-        or fail "Failed to parse dependency spec - $identity";
+    my $parsed = DepSpec::Grammar.parse($identity, :actions(DepSpec::Actions.new));
+    fail "Failed to parse dependency spec - $identity" unless $parsed;
     return normalize-depspec-hash($parsed.ast);
 }
 

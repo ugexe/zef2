@@ -1,5 +1,9 @@
 unit module Zef::Utils::FileSystem;
 
+# Provides basic recursive IO::Path helper routines. Generally for cleaning up
+# after tests and getting a recursive file listing for generating MANIFEST/META6 data.
+# It also serves as the directory candidate fallback for various Zef::Utils::IO routines.
+
 sub list-paths(IO() $path!, Bool :$d, Bool :$f = True, Bool :$r = True, Bool :$dot) is export {
     die "{$path} does not exists" unless $path.e;
     my &wanted-paths := -> @_ { grep { .basename.starts-with('.') && !$dot ?? 0 !! 1 }, @_ }

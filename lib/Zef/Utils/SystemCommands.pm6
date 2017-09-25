@@ -1,8 +1,15 @@
 unit module Zef::Utils::SystemCommands;
 
+# Provides thin wrappers around various system commands that are
+# launched as an external process. It does not aim to provide a
+# 1:1 implementation, but instead provides the required (small)
+# subset of functionality to accomplish one of a few possible tasks.
+# e.g. `git-clone` is not exported - instead `git-download` is provided
+# which handles git uris with revisions/commits/tags (but has to use
+# multiple commands)
 
 # Basic usage info for ecosystem statistics
-# XXX: spaces break win32http.ps1 when launced via Proc::Async
+# XXX: spaces may break win32http.ps1 when launced via Proc::Async?
 my $USERAGENT = "zef/{$*PERL.compiler}/{$*PERL.compiler.version}";
 
 # Some boilerplate for spawning processes
