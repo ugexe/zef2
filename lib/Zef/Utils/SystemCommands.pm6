@@ -369,3 +369,54 @@ multi sub powershell-unzip-list(IO() $archive-file) {
         return $promise;
     }
 }
+
+
+#
+# Below are commands unrelated to FETCH/EXTRACT/PATH but useful none-the-less
+#
+
+# Basic cross-platformish "how many colums wide is the terminal" routine (mode on windows, tput otherwise)
+our sub term-cols() is export { (BEGIN $*DISTRO.is-win) ?? mode-cols() !! tput-cols() }
+
+# [tput]
+our sub has-tput is export { once { so try quiet-proc('tput', '-V').result } }
+our proto sub tput-cols(|) is export(:terminal) {*}
+multi sub tput-cols() {
+    with proc('tput', 'cols') {
+        my $promise = Promise.new;
+        my $output = Buf.new;
+        react {
+            whenever .stdout(:bin) { $output.append($_) if .defined }
+            whenever .stderr(:bin) { }
+            whenever .start() { .so ?? $promise.keep(try +$output.decode('latin-1').lines.head) !! $promise.break($_) }
+        }
+        return $promise;
+    }
+}
+
+# [mode]
+our sub has-mode is export { once { so try quiet-proc('mode', '/?').result } }
+our proto sub mode-cols(|) is export(:terminal) {*}
+multi sub mode-cols() {
+    with proc('mode') {
+        my $promise = Promise.new;
+        my $output = Buf.new;
+        react {
+            whenever .stdout(:bin) { $output.append($_) if .defined }
+            whenever .stderr(:bin) { }
+            whenever .start() {
+                .not ?? $promise.break($_) !! do {
+                    my $output-text = $output.decode('latin-1');
+                    if $output-text ~~ /'CON:' \n <.ws> '-'+ \n .*? \n \N+? $<cols>=[<.digit>+]/ {
+                        my $cols = $/<cols>.comb(/\d/).join;
+                        try {+$cols} ?? $promise.keep($cols - 1) !! $promise.break("`mode-cols result wasn't a number: $cols");
+                    }
+                    else {
+                        $promise.break("`mode-cols` gave unexpected output: $output-text");
+                    }
+                }
+            }
+        }
+        return $promise;
+    }
+}

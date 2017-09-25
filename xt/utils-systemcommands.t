@@ -211,5 +211,21 @@ if has-powershell() {
     }
 }
 
+if has-tput() {
+    subtest 'tput' => {
+        my $cols = tput-cols().result;
+        note $cols.WHAT;
+        ok $cols ~~ Int;
+        ok $cols > -1;
+    }
+}
+
+if has-mode() {
+    subtest 'mode' => {
+        my $cols = mode-cols().result;
+        ok $cols ~~ Int;
+        ok $cols > -1;
+    }
+}
 
 done-testing;
