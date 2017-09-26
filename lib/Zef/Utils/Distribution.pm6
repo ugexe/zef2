@@ -47,11 +47,13 @@ my sub normalize-depspec-hash(
     )
 }
 
-# does spec match against query-spec?
-# - spec should contain concrete matchers (:ver('1.5') - e.g. no * or +)
-# - query-spec could contain concrete or ranges (:ver('1.5+'), :ver('1.*'), :ver('1.5'))
-# (depspec-hash-match separate from `depspec-match` to avoid calling normalize-depspec-hash twice when passing strings)
-my sub depspec-hash-match(%spec, %query-spec, Bool :$strict = True --> Bool) {
+# See if a depspec ($haystack) fulfills a request for a despec query ($needle)
+# - $needle should contain concrete matchers (:ver('1.5') - e.g. no * or +)
+# - $haystack could contain concrete or ranges (:ver('1.5+'), :ver('1.*'), :ver('1.5'))
+our sub depspec-match($needle, $haystack, Bool:D :$strict = True --> Bool) is export {
+    my %query-spec = depspec-hash($needle);
+    my %spec       = depspec-hash($haystack);
+
     # don't even try to match if there is no name
     return False unless %query-spec<name>.chars && %spec<name>.chars;
 
@@ -78,23 +80,10 @@ my sub depspec-hash-match(%spec, %query-spec, Bool :$strict = True --> Bool) {
     return True;
 }
 
-# depspec matching interface
-our proto sub depspec-match(|) is export {*}
-multi sub depspec-match(Str $spec, Str $query-spec, |c) {
-    depspec-hash-match(from-depspec($spec), from-depspec($query-spec), |c)
-}
-multi sub depspec-match(%spec, Str $query-spec, |c) {
-    depspec-hash-match(%spec, from-depspec($query-spec), |c)
-}
-multi sub depspec-match(Str $spec, %query-spec, |c) {
-    depspec-hash-match(from-depspec($spec), %query-spec, |c)
-}
-multi sub depspec-match(%spec, %query-spec, |c) {
-    depspec-hash-match(normalize-depspec-hash(%spec), normalize-depspec-hash(%query-spec), |c)
-}
-
-# hash to depspec string
-our sub to-depspec(%_ --> Str) is export {
+# Given a depspec string or hash, return the normalized depspec string
+our proto sub depspec-str(| --> Str) is export {*}
+multi sub depspec-str(Str $identity) { samewith($_) with depspec-hash($identity) }
+multi sub depspec-str(%_) is export {
     # ignore any nested structures (e.g. dependency hints)
     my %spec = normalize-depspec-hash(%_.grep({ .values.all ~~ Str|Numeric }).hash);
 
@@ -105,8 +94,10 @@ our sub to-depspec(%_ --> Str) is export {
     return $str-parts.join;
 }
 
-# depspec string to hash
-our sub from-depspec(Str $identity --> Hash) is export {
+# Given a depspec string or hash, return the normalized depspec hash
+our proto sub depspec-hash(| --> Str) is export {*}
+multi sub depspec-hash(%_) { samewith($_) with depspec-str(%_) }
+multi sub depspec-hash(Str $identity --> Hash) is export {
     my $parsed = DepSpec::Grammar.parse($identity, :actions(DepSpec::Actions.new));
     fail "Failed to parse dependency spec - $identity" unless $parsed;
     return normalize-depspec-hash($parsed.ast);
@@ -114,9 +105,9 @@ our sub from-depspec(Str $identity --> Hash) is export {
 
 # translate the meta "resources" field's values into the "files" field's values
 our sub resources-to-files(*@_) is export {
-    @_.map({
-        $_ => $_ ~~ m/^libraries\/(.*)/
+    @_.grep(*.defined).map({
+        "resources/$_" => $_ ~~ m/^libraries\/(.*)/
             ?? "resources/libraries/{$*VM.platform-library-name($0.IO)}"
-            !! "resources/{$_}"
+            !! "resources/$_"
     }).hash
 }

@@ -13,6 +13,17 @@ unit module Zef::Utils::SystemCommands;
 my $USERAGENT = "zef/{$*PERL.compiler}/{$*PERL.compiler.version}";
 
 # Some boilerplate for spawning processes
+my sub which($name) {
+    my $source-paths  := $*SPEC.path.grep(*.?chars).map(*.IO).grep(*.d);
+    my $path-guesses  := $source-paths.map({ $_.child($name) });
+    my $possibilities := $path-guesses.map: -> $path {
+        ((BEGIN $*DISTRO.is-win)
+            ?? ($path.absolute, %*ENV<PATHEXT>.split(';').map({ $path.absolute ~ $_ }).Slip)
+            !! $path.absolute).Slip
+    }
+
+    return $possibilities.grep(*.defined).grep(*.IO.f);
+}
 my sub proc(*@_ [$command, *@rest], *%_ [:CWD(:$cwd), :ENV(:%env), *%]) {
     my @invoke-with = (BEGIN $*DISTRO.is-win)
         ?? (which($command).head // $command, |@rest)
@@ -41,20 +52,6 @@ subset Zef::Uri::Git of Cool where { .lc.starts-with('git://') or git-repo-uri($
 subset Zef::Uri::Http of Cool where { .lc.starts-with('http://') or .lc.starts-with('https://') }
 subset Zef::Uri::Tar of Cool where { .lc.ends-with('.tar.gz') or .lc.ends-with('.tgz') }
 subset Zef::Uri::Zip of Cool where { .lc.ends-with('.zip') }
-
-
-# [which] (currently only used for windows)
-my sub which($name) {
-    my $source-paths  := $*SPEC.path.grep(*.?chars).map(*.IO).grep(*.d);
-    my $path-guesses  := $source-paths.map({ $_.child($name) });
-    my $possibilities := $path-guesses.map: -> $path {
-        ((BEGIN $*DISTRO.is-win)
-            ?? ($path.absolute, %*ENV<PATHEXT>.split(';').map({ $path.absolute ~ $_ }).Slip)
-            !! $path.absolute).Slip
-    }
-
-    return $possibilities.grep(*.defined).grep(*.IO.f);
-}
 
 
 #
