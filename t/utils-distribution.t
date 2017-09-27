@@ -129,6 +129,17 @@ subtest 'depspec-match' => {
         ok  depspec-match($_, $haystack-depspec) for @matching-needle-depspecs;
         nok depspec-match($_, $haystack-depspec) for @nonmatching-needle-depspecs;
     }
+
+    subtest ':!strict' => {
+        my $haystack-depspec = 'Foo::Bar:ver<1>';
+        my @matching-needle-depspecs = 'Foo:ver<1>', 'Foo', 'Foo::Bar:ver<*>', 'F', 'Foo:ver<*>';
+        my @nonmatching-needle-depspecs = 'Foo::Baz:ver<1>', 'Foo::Foo:ver<1.*>', 'Foo::X:ver<*>', 'Fooo:ver<1.0>', 'FooBar:ver<1.0+>';
+            'Foo::Bar:ver<1.1>', 'Foo::Bar:ver<1.1+>', 'Foo::Bar:ver<2.*>', 'Foo::Bar:ver<v1.0.1>', 'Foo::Bar:ver<9>';
+
+        # Str, Str
+        ok  depspec-match($_, $haystack-depspec, :!strict) for @matching-needle-depspecs;
+        nok depspec-match($_, $haystack-depspec, :!strict) for @nonmatching-needle-depspecs;
+    }
 }
 
 subtest 'resource-to-files' => {
