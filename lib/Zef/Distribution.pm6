@@ -9,37 +9,25 @@ use Zef::Utils::Distribution;
 
 role Zef::Distribution {
     has $!identity-cache;
-    has @!provides-cache;
-    has @!depends-cache;
-    has @!build-depends-cache;
-    has @!test-depends-cache;
 
     method meta { ... }
 
     method identity { $!identity-cache //= depspec-str(%(:name($.meta<name>), :ver($.meta<ver>), :auth($.meta<auth>), :api($.meta<api>))) }
 
     # [Str, Str, [Str, Str], Str] -> [Spec, Spec, [Spec, Spec], Spec] (including "alternative" deps)
-    method !specs-listing(*@_) { @_.map({ $_ ~~ Iterable ?? $_>>.&?BLOCK !! depspec-hash($_) }).grep(*.defined) }
-    method depends-depspecs       { @!depends-cache       ||= self!specs-listing(|$.meta<depends>)       }
-    method build-depends-depspecs { @!build-depends-cache ||= self!specs-listing(|$.meta<build-depends>) }
-    method test-depends-depspecs  { @!test-depends-cache  ||= self!specs-listing(|$.meta<test-depends>)  }
-    method provides-depspecs      {
-        @!provides-cache ||= self!specs-listing(|$.meta<provides>.hash.keys).map: {
-            .<api>  = $.meta<api>  if .<api>  eq '*'; # e.g. use the distribution's
-            .<auth> = $.meta<auth> if .<auth> eq '';  # value for these fields if not
-            .<ver>  = $.meta<ver>  if .<ver>  eq '*'; # included in any provide spec strings.
-            $_
-        }
-    }
+    method depends-depspecs       { depends-depspecs($.meta<depends>.list)       }
+    method build-depends-depspecs { depends-depspecs($.meta<build-depends>.list) }
+    method test-depends-depspecs  { depends-depspecs($.meta<test-depends>.list)  }
+    method provides-depspecs { provides-depspecs($.meta.hash) }
 
     # Check if a depspec derived from any module name in `provides` matches the given $spec
     method provides-matches-depspec($query-spec, Bool :$strict = True) {
-        defined $.provides-depspecs.first: { depspec-match($query-spec, $_, :$strict) }
+        defined provides-matches-depspec($query-spec, $.meta.hash, :$strict)
     }
 
     # Same as provides-contains-depspec, but also checks the distribution's depspec name
     method matches-depspec($query-spec, Bool :$strict = True) {
-        so depspec-match($query-spec, $.identity, :$strict) || self.provides-matches-depspec($query-spec, :$strict)
+        so matches-depspec($query-spec, $.meta.hash, :$strict)
     }
 }
 

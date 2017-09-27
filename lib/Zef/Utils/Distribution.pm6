@@ -18,7 +18,6 @@ my grammar DepSpec::Grammar {
     token restricted { [':' | '<' | '>' | '(' | ')'] }
 }
 
-# todo: handle (ignore?) top level keys that has a non-string value
 my class DepSpec::Actions {
     method TOP($/) { make %('name'=> $/<name>.made, %($/<key>>>.ast Z=> $/<value>>>.ast)) if $/ }
 
@@ -27,7 +26,7 @@ my class DepSpec::Actions {
     method value($/) { make $/.Str }
 }
 
-# normalize - set defaults and clean keys/values
+# Set defaults and clean keys/values
 my sub normalize-depspec-hash(
     %spec
     [
@@ -80,7 +79,32 @@ our sub depspec-match($needle, $haystack, Bool:D :$strict = True --> Bool) is ex
     return True;
 }
 
-# Given a depspec string or hash, return the normalized depspec string
+# Expects a list of depends, test-depends, etc and returns with all leaf nodes as depspecs
+our sub depends-depspecs(@_) is export {
+    @_.map({ $_ ~~ Iterable ?? $_>>.&?BLOCK.list !! depspec-hash($_) }).grep(*.defined)
+}
+
+# Expects a META6 spec hash and return the provides section with the keys (module names) as depspecs
+our sub provides-depspecs(%meta) is export {
+    %meta<provides>.keys.map({ depspec-hash($_) }).map: {
+        .<api>  = %meta<api>  if .<api>  eq '*'; # e.g. use the distribution's
+        .<auth> = %meta<auth> if .<auth> eq '';  # value for these fields if not
+        .<ver>  = %meta<ver>  if .<ver>  eq '*'; # included in any provide spec strings.
+        $_
+    }
+}
+
+# Check if a depspec derived from any module name in `provides` matches the given $spec
+our sub provides-matches-depspec($query-spec, %meta, Bool :$strict = True) is export {
+    provides-depspecs(%meta).first: { depspec-match($query-spec, $_, :$strict) }
+}
+
+# Same as provides-matches-depspec, but also checks the distribution's depspec name
+our sub matches-depspec($query-spec, %meta, Bool :$strict = True) is export {
+    so depspec-match($query-spec, %meta, :$strict) || provides-matches-depspec($query-spec, %meta, :$strict)
+}
+
+# Expects a depspec string or hash, and return the normalized depspec string
 our proto sub depspec-str(| --> Str) is export {*}
 multi sub depspec-str(Str $identity) { samewith($_) with depspec-hash($identity) }
 multi sub depspec-str(%_) is export {
@@ -94,7 +118,7 @@ multi sub depspec-str(%_) is export {
     return $str-parts.join;
 }
 
-# Given a depspec string or hash, return the normalized depspec hash
+# Expects a depspec string or hash, and returns the normalized depspec hash
 our proto sub depspec-hash(| --> Str) is export {*}
 multi sub depspec-hash(%_) { samewith($_) with depspec-str(%_) }
 multi sub depspec-hash(Str $identity --> Hash) is export {
@@ -103,7 +127,7 @@ multi sub depspec-hash(Str $identity --> Hash) is export {
     return normalize-depspec-hash($parsed.ast);
 }
 
-# translate the meta "resources" field's values into the "files" field's values
+# Translate the meta "resources" field's values into the "files" field's values
 our sub resources-to-files(*@_) is export {
     @_.grep(*.defined).map({
         "resources/$_" => $_ ~~ m/^libraries\/(.*)/
