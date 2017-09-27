@@ -4,7 +4,7 @@ use Zef::Utils::SystemCommands :ALL;
 use Test;
 
 
-my sub to-json($str) { Rakudo::Internals::JSON.from-json($str) }
+my sub from-json($str) { Rakudo::Internals::JSON.from-json($str) }
 
 my $http-url = 'https://httpbin.org/user-agent';
 my $git-url  = 'git://github.com/ugexe/P6TCI.git';
@@ -52,13 +52,13 @@ if has-git() {
             is $extract-to-rev1.dir.elems, 1;
             ok $extract-to-rev1.dir.first(*.d).child('META.info').f;
             nok $extract-to-rev1.dir.first(*.d).child('META6.json').f;
-            is to-json($extract-to-rev1.dir.first(*.d).child('META.info').slurp)<version>, '0.0.4';
+            is from-json($extract-to-rev1.dir.first(*.d).child('META.info').slurp)<version>, '0.0.4';
 
             ok $extract-to-rev2.e;
             is $extract-to-rev2.dir.elems, 1;
             ok $extract-to-rev2.dir.first(*.d).child('META6.json').f;
             nok $extract-to-rev2.dir.first(*.d).child('META.info').f;
-            is to-json($extract-to-rev2.dir.first(*.d).child('META6.json').slurp)<version>, '0.0.5';
+            is from-json($extract-to-rev2.dir.first(*.d).child('META6.json').slurp)<version>, '0.0.5';
         }
 
         # ...although realistically it would be better if we could force passing around the revision explicitly
@@ -82,13 +82,13 @@ if has-git() {
             is $extract-to-rev1.dir.elems, 1;
             ok $extract-to-rev1.dir.first(*.d).child('META.info').f;
             nok $extract-to-rev1.dir.first(*.d).child('META6.json').f;
-            is to-json($extract-to-rev1.dir.first(*.d).child('META.info').slurp)<version>, '0.0.4';
+            is from-json($extract-to-rev1.dir.first(*.d).child('META.info').slurp)<version>, '0.0.4';
 
             ok $extract-to-rev2.e;
             is $extract-to-rev2.dir.elems, 1;
             ok $extract-to-rev2.dir.first(*.d).child('META6.json').f;
             nok $extract-to-rev2.dir.first(*.d).child('META.info').f;
-            is to-json($extract-to-rev2.dir.first(*.d).child('META6.json').slurp)<version>, '0.0.5';
+            is from-json($extract-to-rev2.dir.first(*.d).child('META6.json').slurp)<version>, '0.0.5';
         }
     }
 }
@@ -98,7 +98,7 @@ if has-curl() && has-tar() && has-p5tar() {
         subtest 'curl' => {
             my $path = temp-path('.json');
             ok curl($http-url, $path).so;
-            ok $path.slurp.&to-json<user-agent> ~~ /:i rakudo/;
+            ok $path.slurp.&from-json<user-agent> ~~ /:i rakudo/;
         }
 
         my $archive-path = temp-path('.tar.gz');
@@ -130,7 +130,7 @@ if has-wget() && has-unzip() {
     subtest 'wget / unzip' => {
         my $path = temp-path('.json');
         ok wget($http-url, $path).so;
-        ok $path.slurp.&to-json<user-agent> ~~ /:i rakudo/;
+        ok $path.slurp.&from-json<user-agent> ~~ /:i rakudo/;
 
         my $archive-path = temp-path('.zip');
         await wget($zip-url, $archive-path);
@@ -152,7 +152,7 @@ if has-powershell() {
         subtest 'powershell-download' => {
             my $path = temp-path('.json');
             ok powershell-download($http-url, $path).so;
-            ok $path.slurp.&to-json<user-agent> ~~ /:i rakudo/;
+            ok $path.slurp.&from-json<user-agent> ~~ /:i rakudo/;
         }
 
         subtest 'powershell-unzip' => {

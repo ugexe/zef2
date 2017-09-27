@@ -4,9 +4,9 @@ use Zef::Utils::IO;
 use Test;
 
 
-my sub to-json($str) { Rakudo::Internals::JSON.from-json($str) }
+my sub from-json($str) { Rakudo::Internals::JSON.from-json($str) }
 
-ok FETCH('https://httpbin.org/user-agent', temp-path()).result.slurp.&to-json<user-agent> ~~ /:i rakudo/, 'Basic fetch test';
+ok FETCH('https://httpbin.org/user-agent', temp-path()).result.slurp.&from-json<user-agent> ~~ /:i rakudo/, 'Basic fetch test';
 
 my $git-url     = 'git://github.com/ugexe/Perl6-Net--HTTP.git';
 my $git-url-rev = 'https://github.com/ugexe/Perl6-Net--HTTP.git@1b221c1d0946ff91f4a1c612153ed4d974aa7351';
@@ -53,7 +53,7 @@ subtest 'Ensure FETCH/EXTRACT handle git revisions correct' => {
         my $extracted-to = EXTRACT($saved-to, temp-path()).result;
         is $extracted-to.dir.elems, 1, 'Expected number of paths found in root of extracted target directory';
         ok $extracted-to.dir.first(*.d).child('META6.json').f, "EXTRACT $saved-to -> $extracted-to";
-        is to-json($extracted-to.dir.first(*.d).child('META6.json').slurp)<version>, '0.0.4';
+        is from-json($extracted-to.dir.first(*.d).child('META6.json').slurp)<version>, '0.0.4';
     }
 }
 
