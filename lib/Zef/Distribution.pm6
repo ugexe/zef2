@@ -25,9 +25,9 @@ role Zef::Distribution {
     method test-depends-depspecs  { @!test-depends-cache  ||= self!specs-listing(|$.meta<test-depends>)  }
     method provides-depspecs      {
         @!provides-cache ||= self!specs-listing(|$.meta<provides>.hash.keys).map: {
-            .<api>  = $.meta<api>  if .<api> eq '*'; # e.g. use the distribution's
-            .<auth> = $.meta<auth> if .<auth> eq ''; # value for these fields if not
-            .<ver>  = $.meta<ver>  if .<ver> eq '*'; # included in any provide spec strings.
+            .<api>  = $.meta<api>  if .<api>  eq '*'; # e.g. use the distribution's
+            .<auth> = $.meta<auth> if .<auth> eq '';  # value for these fields if not
+            .<ver>  = $.meta<ver>  if .<ver>  eq '*'; # included in any provide spec strings.
             $_
         }
     }
@@ -45,8 +45,7 @@ role Zef::Distribution {
 
 # Ideally we just use a `Distribution::Path does Zef::Distribution` without
 # overriding method meta, but we do it for now to clean/normalize the meta data.
-class Zef::Distribution::FileSystem is Distribution::Path does Zef::Distribution {
-    also does Distribution;
+class Zef::Distribution::FileSystem does Distribution::Locally does Zef::Distribution {
     has %!meta-cache;
 
     my sub from-json($str) { Rakudo::Internals::JSON.from-json($str) }

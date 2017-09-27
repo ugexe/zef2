@@ -10,9 +10,8 @@ my sub gen-dist-files(*%d) {
     my $dist-dir = temp-path() andthen *.mkdir;
     $dist-dir.IO.child('META6.json').spurt(to-json(%d));
     for %d<provides> {
-        $dist-dir.IO.child(.key).spurt:
-            (qq|unit module {.value};\n|
-            ~ q|sub source-file is export {$?FILE}|);
+        my $to = $dist-dir.IO.child(.value) andthen {.parent.mkdir unless .parent.e}
+        $to.spurt: (qq|unit module {.key};\n| ~ q|sub source-file is export {$?FILE}|);
     }
     return $dist-dir.IO;
 }
@@ -102,6 +101,16 @@ subtest 'Zef::Distribution::FileSystem' => {
     nok $new-dist.provides-matches-depspec("XXX:api<2>");
     nok $new-dist.provides-matches-depspec("XXX::New:api<3>");
 
+    subtest 'Installation' => {
+        my $repo = CompUnit::RepositoryRegistry.repository-for-spec("inst#" ~ temp-path().child('my-repo').absolute);
+        my $cu-depspec = CompUnit::DependencySpecification.new(:short-name<XXX>, :ver<1>);
+
+        nok $repo.resolve($cu-depspec);
+        ok $repo.install($old-dist);
+        ok $repo.resolve($cu-depspec);
+
+        # TODO: test $new-dist (see: 'Provides lookup by key is NYI' todo earlier in test file)
+    }
 }
 
 
