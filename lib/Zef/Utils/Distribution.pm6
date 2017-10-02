@@ -6,6 +6,8 @@ unit module Zef::Utils::Distribution;
 # Distribution object just to check identity related items (and because
 # the rest of the stuff is common to most Distribution implementations).
 
+# TODO: benchmark before/after adding some caching for string parsing (Str -> Hash)
+
 my grammar DepSpec::Grammar {
     regex TOP { ^^ <name> [':' <key> <value>]* $$ }
 
@@ -79,6 +81,29 @@ our sub depspec-match($needle, $haystack, Bool:D :$strict = True --> Bool) is ex
     return True;
 }
 
+# Expects a depspec string or hash, and return the normalized depspec string
+our proto sub depspec-str(| --> Str) is export {*}
+multi sub depspec-str(Str:D $identity) { samewith($_) with depspec-hash($identity) }
+multi sub depspec-str(%_) is export {
+    # ignore any nested structures (e.g. dependency hints)
+    my %spec = normalize-depspec-hash(%_.grep({ .values.all ~~ Str|Numeric }).hash);
+
+    # create string based on sorted keys, but always put 'name' first
+    my $sorted-first-level := %spec.keys.sort.sort: { $^a ne 'name' }
+    my $str-parts := $sorted-first-level.map({ $_ eq 'name' ?? %spec{$_} !! ":{$_}<{%spec<< $_ >>}>" });
+
+    return $str-parts.join;
+}
+
+# Expects a depspec string or hash, and returns the normalized depspec hash
+our proto sub depspec-hash(| --> Str) is export {*}
+multi sub depspec-hash(%_) { samewith($_) with depspec-str(%_) }
+multi sub depspec-hash(Str:D $identity --> Hash) is export {
+    my $parsed = DepSpec::Grammar.parse($identity, :actions(DepSpec::Actions.new));
+    fail "Failed to parse dependency spec - $identity" unless $parsed;
+    return normalize-depspec-hash($parsed.ast);
+}
+
 # Expects a list of depends, test-depends, etc and returns with all leaf nodes as depspecs
 our sub depends-depspecs(@_) is export {
     @_.map({ $_ ~~ Iterable ?? $_>>.&?BLOCK.list !! depspec-hash($_) }).grep(*.defined)
@@ -102,29 +127,6 @@ our sub provides-matches-depspec($query-spec, %meta, Bool :$strict = True) is ex
 # Same as provides-matches-depspec, but also checks the distribution's depspec name
 our sub matches-depspec($query-spec, %meta, Bool :$strict = True) is export {
     so depspec-match($query-spec, %meta, :$strict) || provides-matches-depspec($query-spec, %meta, :$strict)
-}
-
-# Expects a depspec string or hash, and return the normalized depspec string
-our proto sub depspec-str(| --> Str) is export {*}
-multi sub depspec-str(Str $identity) { samewith($_) with depspec-hash($identity) }
-multi sub depspec-str(%_) is export {
-    # ignore any nested structures (e.g. dependency hints)
-    my %spec = normalize-depspec-hash(%_.grep({ .values.all ~~ Str|Numeric }).hash);
-
-    # create string based on sorted keys, but always put 'name' first
-    my $sorted-first-level := %spec.keys.sort.sort: { $^a ne 'name' }
-    my $str-parts := $sorted-first-level.map({ $_ eq 'name' ?? %spec{$_} !! ":{$_}<{%spec<< $_ >>}>" });
-
-    return $str-parts.join;
-}
-
-# Expects a depspec string or hash, and returns the normalized depspec hash
-our proto sub depspec-hash(| --> Str) is export {*}
-multi sub depspec-hash(%_) { samewith($_) with depspec-str(%_) }
-multi sub depspec-hash(Str $identity --> Hash) is export {
-    my $parsed = DepSpec::Grammar.parse($identity, :actions(DepSpec::Actions.new));
-    fail "Failed to parse dependency spec - $identity" unless $parsed;
-    return normalize-depspec-hash($parsed.ast);
 }
 
 # Translate the meta "resources" field's values into the "files" field's values

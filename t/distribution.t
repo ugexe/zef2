@@ -1,13 +1,12 @@
 use v6;
 use Zef::Utils::FileSystem;
-use Zef::Utils::Distribution;
 use Zef::Distribution;
 use Test;
 
 
 my sub gen-dist-files(*%d) {
     my &to-json := -> $o { Rakudo::Internals::JSON.to-json($o) }
-    my $dist-dir = temp-path() andthen *.mkdir;
+    my $dist-dir = Zef::Utils::FileSystem::temp-path() andthen *.mkdir;
     $dist-dir.IO.child('META6.json').spurt(to-json(%d));
     for %d<provides> {
         my $to = $dist-dir.IO.child(.value) andthen {.parent.mkdir unless .parent.e}
@@ -79,9 +78,12 @@ subtest 'Distribution interfaces' => {
         is $old-dist.meta<provides><XXX>, 'lib/XXX.pm6';
         todo 'Provides lookup by key is NYI for module names with :adverbs', 1;
         is $new-dist.meta<provides><XXX>, 'lib/XXX.pm6';
-        # This is how lookup/store for provides shortnames will have to work in rakudo/CUR
-        is $new-dist.meta<provides>.first({ depspec-match('XXX', .key) }).value, 'lib/XXX.pm6';
-        is $new-dist.provides-depspecs.map({ depspec-hash($_)<name> }).head, 'XXX';
+        {
+            # This is how lookup/store for provides shortnames will have to work in rakudo/CUR
+            require Zef::Utils::Distribution <&depspec-match &depspec-hash>;
+            is $new-dist.meta<provides>.first({ &depspec-match('XXX', .key) }).value, 'lib/XXX.pm6';
+            is $new-dist.provides-depspecs.map({ &depspec-hash($_)<name> }).head, 'XXX';
+        }
 
         is $old-dist.meta<name>, 'XXX::Old';
         is $new-dist.meta<name>, 'XXX::New';

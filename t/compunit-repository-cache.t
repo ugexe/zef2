@@ -25,6 +25,7 @@ my sub dependencyspecification(%_) {
     )
 }
 
+
 subtest 'Installing' => {
     my $dist-dir = gen-dist-files(:perl<6.c>, :name<XXX>, :ver<1>, :provides(:XXX<lib/XXX.pm6>));
     my $dist     = Zef::Distribution::FileSystem.new(prefix => $dist-dir);

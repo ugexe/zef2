@@ -1,12 +1,8 @@
 use Zef::Utils::FileSystem;
 use Zef::Utils::Distribution;
 
-# For the most part we only work with one type of Distribution, Distribution::Path (Zef::Distribution::FileSystem).
-# This is because we generally want to do file operations before installation and thus usually end up with such
-# a distribution. However, we -could- have a Zef::Distribution::Tar that does not extract any data to the file
-# system, and instead pipes data from the tar command to stdout. This means installation would extract each file
-# at the moment rakudo tries to install it.
 
+# Methods that can be used on any type of Distribution implementation (mostly search/query related)
 role Zef::Distribution {
     has $!identity-cache;
 
@@ -14,7 +10,7 @@ role Zef::Distribution {
 
     method identity { $!identity-cache //= depspec-str(%(:name($.meta<name>), :ver($.meta<ver>), :auth($.meta<auth>), :api($.meta<api>))) }
 
-    # [Str, Str, [Str, Str], Str] -> [Spec, Spec, [Spec, Spec], Spec] (including "alternative" deps)
+    # [Str, Str, [Str, Str], Str] -> [Spec, Spec, [Spec, Spec], Spec]
     method depends-depspecs       { depends-depspecs($.meta<depends>.list)       }
     method build-depends-depspecs { depends-depspecs($.meta<build-depends>.list) }
     method test-depends-depspecs  { depends-depspecs($.meta<test-depends>.list)  }

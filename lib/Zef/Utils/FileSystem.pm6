@@ -4,7 +4,7 @@ unit module Zef::Utils::FileSystem;
 # after tests and getting a recursive file listing for generating MANIFEST/META6 data.
 # It also serves as the directory candidate fallback for various Zef::Utils::IO routines.
 
-sub list-paths(IO() $path!, Bool :$d, Bool :$f = True, Bool :$r = True, Bool :$dot) is export {
+our sub list-paths(IO() $path!, Bool :$d, Bool :$f = True, Bool :$r = True, Bool :$dot) is export {
     return ().Seq unless $path.e;
     my &wanted-paths := -> @_ { grep { .basename.starts-with('.') && !$dot ?? 0 !! 1 }, @_ }
 
@@ -19,7 +19,7 @@ sub list-paths(IO() $path!, Bool :$d, Bool :$f = True, Bool :$r = True, Bool :$d
     }
 }
 
-sub copy-paths(IO() $from-path!, IO() $to-path, Bool :$d, Bool :$f = True, Bool :$r = True, Bool :$dot) is export {
+our sub copy-paths(IO() $from-path!, IO() $to-path, Bool :$d, Bool :$f = True, Bool :$r = True, Bool :$dot) is export {
     die "{$from-path} does not exists" unless $from-path.IO.e;
     mkdir($to-path) unless $to-path.e;
 
@@ -32,13 +32,13 @@ sub copy-paths(IO() $from-path!, IO() $to-path, Bool :$d, Bool :$f = True, Bool 
     }
 }
 
-sub move-paths(IO() $from-path, IO() $to-path, Bool :$d = True, Bool :$f = True, Bool :$r = True, Bool :$dot) is export {
+our sub move-paths(IO() $from-path, IO() $to-path, Bool :$d = True, Bool :$f = True, Bool :$r = True, Bool :$dot) is export {
     my @copied  = copy-paths($from-path, $to-path, :$d, :$f, :$r, :$dot);
     my @deleted = delete-paths($from-path, :$d, :$f, :$r, :$dot);
     @copied;
 }
 
-sub delete-paths(IO() $path, Bool :$d = True, Bool :$f = True, Bool :$r = True, Bool :$dot = True) is export {
+our sub delete-paths(IO() $path, Bool :$d = True, Bool :$f = True, Bool :$r = True, Bool :$dot = True) is export {
     my @paths = list-paths($path, :$d, :$f, :$r, :$dot).unique(:as(*.absolute));
     my @files = @paths.grep(*.f);
     my @dirs  = @paths.grep(*.d);
@@ -52,7 +52,7 @@ sub delete-paths(IO() $path, Bool :$d = True, Bool :$f = True, Bool :$r = True, 
 
 # Returned path is not created (thats for the user to do) so it can be used as a file or directory.
 # Will attempt to create parent path if it does not exist.
-sub temp-path(Str() $postfix = '') is export {
+our sub temp-path(Str() $postfix = '') is export {
     my $path;
     for ^1000 {
         my $dir = $*TMPDIR.child("{time}.{$*PID}.{$_}");
@@ -63,7 +63,7 @@ sub temp-path(Str() $postfix = '') is export {
     return $path;
 }
 
-sub lock-file-protect($path, &code, Bool :$shared = False) is export {
+our sub lock-file-protect($path, &code, Bool :$shared = False) is export {
     do given ($shared ?? $path.IO.open(:r) !! $path.IO.open(:w)) {
         LEAVE {try .close}
         LEAVE {try .path.unlink}
