@@ -214,7 +214,7 @@ subtest 'Loading' => {
             my $auth2-source-file;
 
             subtest 'XXX:auth<foo>' => {
-                my $eval-to-load-by-name = $eval-to-load-cache ~ q|use XXX:api<foo>; source-file().IO.absolute|;
+                my $eval-to-load-by-name = $eval-to-load-cache ~ q|use XXX:auth<foo>; source-file().IO.absolute|;
                 eval-lives-ok $eval-to-load-by-name;
                 my $name-source-file = EVAL $eval-to-load-by-name;
                 $auth1-source-file = $name-source-file .= subst(/\s\(.*?\)$/, ''); # workaround precomp $?FILE issue

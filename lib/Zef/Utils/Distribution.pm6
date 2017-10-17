@@ -12,10 +12,10 @@ my grammar DepSpec::Grammar {
     regex TOP { ^^ <name> [':' <key> <value>]* $$ }
 
     regex name  { <.ident> ['::' <.ident>]* }
-    token key   { <-restricted>+ }
-    token value { '<' ~ '>'  [<( [[ <!before \>|\\> . ]+]* % ['\\' . ] )>] }
+    regex key   { <-restricted>+ }
+    regex value { '<' ~ '>' [<( [[ <!before \>|\<|\\> . ]+?]* %% ['\\' . ]+ )>] }
+    regex ident { <.alpha> [<.alnum> [<.apostrophe> <.alnum>]?]* }
 
-    token ident { <.alpha> [<.alnum> [<.apostrophe> <.alnum>]?]* }
     token apostrophe { ["'" | '-'] }
     token restricted { [':' | '<' | '>' | '(' | ')'] }
 }
@@ -42,10 +42,21 @@ my sub normalize-depspec-hash(
     %(
         :$name,
         :$auth,
-        :api($api.substr(+$api.starts-with('v'))),
-        :ver($ver.substr(+$ver.starts-with('v'))),
+        :api($api.Str.substr(+$api.Str.starts-with('v'))),
+        :ver($ver.Str.substr(+$ver.Str.starts-with('v'))),
         |%_
     )
+}
+
+# Sort depspecs based on their version and api
+our proto sub depspec-sort(|) is export {*}
+multi sub depspec-sort(@values) { nextwith(@values) }
+multi sub depspec-sort(+values) is export {
+    values\
+        .map({ Pair.new(depspec-hash($_.hash), $_) })\
+        .sort({ Version.new($_[0].key<api>) })\ # The key gets wrapped with `( )`
+        .sort({ Version.new($_[0].key<ver>) })\ # for some reason, hence the [0].
+        .map({ .value }); # .key is a mutated copy we used to sort with, and .value is the original
 }
 
 # See if a depspec ($haystack) fulfills a request for a despec query ($needle)
@@ -59,9 +70,9 @@ our sub depspec-match($needle, $haystack, Bool:D :$strict = True --> Bool) is ex
     return False unless %query-spec<name>.chars && %spec<name>.chars;
 
     # match name - if $strict is False it will match the name as a pattern
-    return False unless $strict 
+    return False unless $strict
         ?? (%query-spec<name>.lc eq %spec<name>.lc)
-        !! (%spec<name>.match(%query-spec<name>) with %query-spec<name>);
+        !! (%spec<name>.match($_) with %query-spec<name>);
 
     # match auth - only accepts an exact string match
     return False if %query-spec<auth>.chars && %query-spec<auth> ne %spec<auth>;
@@ -85,13 +96,18 @@ our sub depspec-match($needle, $haystack, Bool:D :$strict = True --> Bool) is ex
 our proto sub depspec-str(| --> Str) is export {*}
 multi sub depspec-str(Str:D $identity) { samewith($_) with depspec-hash($identity) }
 multi sub depspec-str(%_) is export {
+    my &escape-spec-value = { $^a.subst(:g, /<!after \\> \</, '\<').subst(:g, /<!after \\> \>/, '\>') }
+
     # ignore any nested structures (e.g. dependency hints)
-    my %spec = normalize-depspec-hash(%_.grep({ .values.all ~~ Str|Numeric }).hash);
+    # TODO: redo this!
+    my %first-level = normalize-depspec-hash(
+        %_.keys.grep({ %_{$_} }).grep({ %_{$_} ~~ Str|Int|Num|Bool|Version }).map({ $_ => %_{$_} }).hash
+    ).hash;
 
     # create string based on sorted keys, but always put 'name' first
-    my $sorted-first-level := %spec.keys.sort.sort: { $^a ne 'name' }
-    my $str-parts := $sorted-first-level.map({ $_ eq 'name' ?? %spec{$_} !! ":{$_}<{%spec<< $_ >>}>" });
+    my $sorted-first-level := %first-level.keys.sort.sort: { $^a ne 'name' }
 
+    my $str-parts := $sorted-first-level.map({ $_ eq 'name' ?? %first-level{$_} !! ":{$_}<{escape-spec-value(%first-level<< $_ >>.Str)}>" }).cache;
     return $str-parts.join;
 }
 
@@ -112,9 +128,9 @@ our sub depends-depspecs(@_) is export {
 # Expects a META6 spec hash and return the provides section with the keys (module names) as depspecs
 our sub provides-depspecs(%meta) is export {
     %meta<provides>.keys.map({ depspec-hash($_) }).map: {
-        .<api>  = %meta<api>  if .<api>  eq '*'; # e.g. use the distribution's
-        .<auth> = %meta<auth> if .<auth> eq '';  # value for these fields if not
-        .<ver>  = %meta<ver>  if .<ver>  eq '*'; # included in any provide spec strings.
+        .<api>  = %meta<api>  if %meta<api>.defined  && .<api>  eq '*'; # e.g. use the distribution's
+        .<auth> = %meta<auth> if %meta<auth>.defined && .<auth> eq '';  # value for these fields if not
+        .<ver>  = %meta<ver>  if %meta<ver>.defined  && .<ver>  eq '*'; # included in any provide spec strings.
         $_
     }
 }

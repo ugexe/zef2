@@ -74,6 +74,31 @@ subtest 'depspec-str/hash' => {
         is depspec-str($shortspec), $longspec;
     }
 
+    subtest 'Angle quotes inside depspec field value' => {
+        my $dirty-shortspec = 'Bar::Baz:auth<CPAN:UGEXE <firstlast@cpan.org>>';
+        my $dirty-longspec  = 'Bar::Baz:api<*>:auth<CPAN:UGEXE <firstlast@cpan.org>>>:ver<*>';
+        my $clean-shortspec = 'Bar::Baz:auth<CPAN:UGEXE \<firstlast@cpan.org\>>';
+        my $clean-longspec  = 'Bar::Baz:api<*>:auth<'
+            ~ 'CPAN:UGEXE \<firstlast@cpan.org\>' # Testing this line - contains escaped quotes (> and <) and a colon
+            ~ '>:ver<*>';
+        my %dirty-hashspec = :name<Bar::Baz>, :ver('*'), :api('*'), :auth(q|CPAN:UGEXE <firstlast@cpan.org>|);
+        my %clean-hashspec = :name<Bar::Baz>, :ver('*'), :api('*'), :auth(q|CPAN:UGEXE \<firstlast@cpan.org\>|);
+
+        is-deeply depspec-hash($clean-shortspec), %clean-hashspec;
+        is-deeply depspec-hash($clean-longspec), %clean-hashspec;
+        is-deeply depspec-hash(%clean-hashspec), %clean-hashspec;
+        is-deeply depspec-hash(%dirty-hashspec), %clean-hashspec;
+        is depspec-str(%dirty-hashspec), $clean-longspec;
+        is depspec-str(%clean-hashspec), $clean-longspec;
+        is depspec-str($clean-longspec), $clean-longspec;
+        is depspec-str($clean-shortspec), $clean-longspec;
+
+        # so remember: only < and > need to be quoted in the string form of depspec, not values of the hash form depspec
+        nok depspec-str($dirty-longspec);
+        nok depspec-str($dirty-shortspec);
+        ok depspec-str(%dirty-hashspec);
+    }
+
     subtest 'Multi-level depspec hash' => {
         my $longspec = 'Foo::Bar:api<*>:auth<>:ver<*>';
         my %dirty-hashspec = :name<Foo::Bar>, :ver('*'), :baz(:baz1(1), :baz2(2));
@@ -139,6 +164,30 @@ subtest 'depspec-match' => {
         # Str, Str
         ok  depspec-match($_, $haystack-depspec, :!strict) for @matching-needle-depspecs;
         nok depspec-match($_, $haystack-depspec, :!strict) for @nonmatching-needle-depspecs;
+    }
+}
+
+subtest 'depspec-sort' => {
+    subtest 'version/api sort order' => {
+        my $sorted-dists = (
+            %( :name<XXX>, :ver<1.1>,      :api<1>, ),
+            %( :name<XXX>, :version<1.11>, :api<1>, ),
+            %( :name<XXX>, :ver<1.200>,    :api<1>, ),
+            %( :name<XXX>, :ver<2>,        :api<1>, ),
+            %( :name<XXX>, :ver<2>,        :api<2>, ),
+        );
+
+        is-deeply( depspec-sort($_), $sorted-dists ) for $sorted-dists.permutations;
+    }
+
+    subtest 'sort meta data hashes' => {
+        my $sorted-dists = (
+            %( :perl<6.c>, :name<XXX>,          :api<2>, :auth<foo>, :provides(:XXX<lib/XXX.pm6>) ),
+            %( :perl<6.c>, :name<XXX>, :ver<1>, :api<1>,             :provides(:XXX<lib/XXX.pm6>) ),
+            %( :perl<6.c>, :name<XXX>, :ver<2>,          :auth<bar>, :provides(:XXX<lib/XXX.pm6>) ),
+        );
+
+        is-deeply( depspec-sort($_), $sorted-dists ) for $sorted-dists.permutations;
     }
 }
 

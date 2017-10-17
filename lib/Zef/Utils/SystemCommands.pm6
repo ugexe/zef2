@@ -382,6 +382,9 @@ multi sub powershell-unzip-list(IO() $archive-file) {
 # Basic cross-platformish "how many colums wide is the terminal" routine (mode on windows, tput otherwise)
 our sub term-cols() is export { (BEGIN $*DISTRO.is-win) ?? mode-cols() !! tput-cols() }
 
+# TODO: tput doesn't always give the right value - seems like `echo $COLUMNS` might be the better option except
+# I don't think that gets updated when SIGWINCH is fired :(
+
 # [tput]
 our sub has-tput is export { once { so try quiet-proc('tput', '-V').result } }
 our proto sub tput-cols(|) is export(:terminal) {*}

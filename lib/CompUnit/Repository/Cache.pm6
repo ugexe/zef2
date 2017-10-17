@@ -1,24 +1,7 @@
 # Like CUR::FileSystem but CUR::Installable
 # e.g. copy default layout into some prefix (a sha1 of the module right now) and add CURI methods to access it
 
-# TODO:
-# Improve findability of "installed" modules by putting the sha1 directory into a parent that contains the module name
-#
-# CHANGE THIS FORMAT -
-# prefix/
-# prefix/sha1-of-module1-ver1/
-# prefix/sha1-of-module1-ver1/META6.json
-# prefix/sha1-of-module2-ver9/
-# prefix/sha1-of-module2/-ver9/META6.json
-#
-# TO THIS FORMAT -
-# prefix/
-# prefix/module1/sha1-of-module1-ver1/
-# prefix/module1/sha1-of-module1-ver1/META6.json
-# prefix/module2/sha1-of-module2-ver9/
-# prefix/module2/sha1-of-module2-ver9/META6.json
-
-# TODO: encode unsafe file names
+# TODO: encode unsafe file names for method install
 
 # TODO: method load (for `require $path`)
 
@@ -139,7 +122,9 @@ class CompUnit::Repository::Cache {
                 and Version.new($_.meta<api>) ~~ $api-matcher
         }
 
-        return $matching-dists;
+        return $matching-dists\
+            .sort({ Version.new($^b.meta<api>) <=> Version.new($^a.meta<api>) })\
+            .sort({ Version.new($^b.meta<ver>) <=> Version.new($^a.meta<ver>) });
     }
 
     method !matching-dist(CompUnit::DependencySpecification $spec) {
