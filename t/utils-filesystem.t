@@ -1,15 +1,13 @@
 use v6;
 use Zef::Utils::FileSystem;
 use Test;
-plan 4;
+plan 5;
 
 
-my $save-to = $*TMPDIR.child(time);
-my $dir-id  = 0;
+subtest "list-paths and delete-paths :d :f :r (rm -rf)" => {
+    ENTER my $save-to = $*TMPDIR.child(time).child("{(^1000000).pick}");
+    LEAVE try delete-paths($save-to);
 
-# :d :f :r
-subtest {
-    temp $save-to = $save-to.child(++$dir-id);
     my @delete-us;
 
     # 1. Folder: /{temp folder}
@@ -40,12 +38,12 @@ subtest {
         is $path-to-delete, any(|@paths,$save-to), 'file was found in list-paths';
         is $path-to-delete, $to-be-deleted, "Deleted: {$path-to-delete.path}";
     }
-}, "list-paths and delete-paths :d :f :r (rm -rf)";
+}
 
 
-# :d :f
-subtest {
-    temp $save-to = $save-to.child(++$dir-id);
+subtest "list-paths and delete-paths :d :f (no recursion)" => {
+    ENTER my $save-to = $*TMPDIR.child(time).child("{(^1000000).pick}");
+    LEAVE try delete-paths($save-to);
 
     my @delete-us;
 
@@ -78,12 +76,12 @@ subtest {
         is $path-to-delete, $to-be-deleted, "Deleted: {$path-to-delete.path}";
         isnt $path-to-delete, $not-deleted, 'Did not delete sub-file or delete non-empty directory';
     }
-}, "list-paths and delete-paths :d :f (no recursion)";
+}
 
 
-# :d :r
-subtest {
-    temp $save-to = $save-to.child(++$dir-id);
+subtest "list-paths and delete-paths :d :r" => {
+    ENTER my $save-to = $*TMPDIR.child(time).child("{(^1000000).pick}");
+    LEAVE try delete-paths($save-to);
 
     my @delete-us;
 
@@ -118,12 +116,12 @@ subtest {
         is $path-to-delete, $to-be-deleted, "Deleted: {$path-to-delete.path}";
         isnt $path-to-delete, $not-deleted, 'Did not delete sub-file or delete non-empty directory';
     }
-}, "list-paths and delete-paths :d :r";
+}
 
 
-# :f :r
-subtest {
-    temp $save-to = $save-to.child(++$dir-id);
+subtest "list-paths and delete-paths :f :r" => {
+    ENTER my $save-to = $*TMPDIR.child(time).child("{(^1000000).pick}");
+    LEAVE try delete-paths($save-to);
 
     my @delete-us;
 
@@ -159,10 +157,12 @@ subtest {
         is $path-to-delete, $to-be-deleted, "Deleted: {$path-to-delete.path}";
         isnt $path-to-delete, $not-deleted, 'Did not delete sub-file or delete non-empty directory';
     }
-}, "list-paths and delete-paths :f :r";
+}
 
 
-try rmdir($save-to);
+subtest "which" => {
+    ok Zef::Utils::FileSystem::which($*DISTRO.is-win ?? 'cmd' !! 'sh').elems, "Found a shell";
+}
 
 #TODO: test temp-path()
 

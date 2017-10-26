@@ -1,4 +1,5 @@
 unit module Zef::Utils::SystemCommands;
+use Zef::Utils::FileSystem;
 
 # Provides thin wrappers around various system commands that are
 # launched as an external process. It does not aim to provide a
@@ -12,22 +13,9 @@ unit module Zef::Utils::SystemCommands;
 # XXX: spaces may break win32http.ps1 when launced via Proc::Async?
 my $USERAGENT = "zef/{$*PERL.compiler}/{$*PERL.compiler.version}";
 
-# Some boilerplate for spawning processes
-my sub which($name) {
-    my $source-paths  := $*SPEC.path.grep(*.?chars).map(*.IO).grep(*.d);
-    my $path-guesses  := $source-paths.map({ $_.child($name) });
-    my $possibilities := $path-guesses.map: -> $path {
-        ((BEGIN $*DISTRO.is-win)
-            ?? ($path.absolute, %*ENV<PATHEXT>.split(';').map({ $path.absolute ~ $_ }).Slip)
-            !! $path.absolute).Slip
-    }
-
-    return $possibilities.grep(*.defined).grep(*.IO.f);
-}
+# Don't use this to launch anything with the perl6 command!
 my sub proc(*@_ [$command, *@rest], *%_ [:CWD(:$cwd), :ENV(:%env), *%]) {
-    my @invoke-with = (BEGIN $*DISTRO.is-win)
-        ?? (which($command).head // $command, |@rest)
-        !! @_;
+    my @invoke-with = (Zef::Utils::FileSystem::which($command).head // $command, |@rest);
     return Proc::Async.new(|@invoke-with);
 }
 my sub quiet-proc(*@_ [$, *@], *%_ [:CWD(:$cwd), :ENV(:%env), *%]) {

@@ -6,7 +6,11 @@ unit module Zef::Utils::Distribution;
 # Distribution object just to check identity related items (and because
 # the rest of the stuff is common to most Distribution implementations).
 
-# TODO: benchmark before/after adding some caching for string parsing (Str -> Hash)
+# TODO:
+# *) benchmark before/after adding some caching for string parsing (Str -> Hash)
+# *) create a depspec type
+#   - could retain all levels of meta info (provides, etc)
+#   - skip renormalization / reparsing
 
 my grammar DepSpec::Grammar {
     regex TOP { ^^ <name> [':' <key> <value>]* $$ }
@@ -56,7 +60,7 @@ multi sub depspec-sort(+values) is export {
         .map({ Pair.new(depspec-hash($_.hash), $_) })\
         .sort({ Version.new($_[0].key<api>) })\ # The key gets wrapped with `( )`
         .sort({ Version.new($_[0].key<ver>) })\ # for some reason, hence the [0].
-        .map({ .value }); # .key is a mutated copy we used to sort with, and .value is the original
+        .map({ .value }); # .key is a first-level-only copy we used to sort with, and .value is the original
 }
 
 # See if a depspec ($haystack) fulfills a request for a despec query ($needle)

@@ -71,3 +71,16 @@ our sub lock-file-protect($path, &code, Bool :$shared = False) is export {
         code();
     }
 }
+
+# For Zef::Utils::SystemCommands::proc, and as the query engine for :bin<curl> style dependency hints.
+our sub which($name) {
+    my $source-paths  := $*SPEC.path.grep(*.?chars).map(*.IO).grep(*.d);
+    my $path-guesses  := $source-paths.map({ $_.child($name) });
+    my $possibilities := $path-guesses.map: -> $path {
+        ((BEGIN $*DISTRO.is-win)
+            ?? ($path.absolute, %*ENV<PATHEXT>.split(';').map({ $path.absolute ~ $_ }).Slip)
+            !! $path.absolute).Slip
+    }
+
+    return $possibilities.grep(*.defined).grep({ .IO.e && .IO.f && .IO.x });
+}
