@@ -203,16 +203,52 @@ subtest 'provides-depspecs' => {
     is provides-depspecs(%new-dist-meta).map({ depspec-hash($_)<api> }).head, 3;
 }
 
+subtest 'environment-query' => {
+    my %native-depspec =
+            from => "native",
+            name => {
+                "by-distro.name" => {
+                    "win32"  => "win",
+                    ""       => "unknown",
+                }
+            };
+
+    my $shortname = $*DISTRO.is-win ?? "win32" !! "unknown";
+    my $longspec   = "{$shortname}:api<*>:auth<>:from<native>:ver<*>";
+    my %hashspec   = :name($shortname), :from("native");
+
+    is-deeply environment-query(%native-depspec), %hashspec;
+    is depspec-str(environment-query(%native-depspec)), $longspec;
+}
+
 subtest 'depends-depspecs' => {
-    my %dist-meta = :perl<6.c>, :name<XXX>, :provides(:XXX('lib/XXX.pm6')),
-        :depends('Foo::Bar', ('JSON::Foo', 'JSON::Bar:ver<2>'), 'Baz:ver<1>:api<*>:auth<foo@bar.net>');
+    my %dist-meta =
+        :perl<6.c>,
+        :name<XXX>,
+        :provides(:XXX('lib/XXX.pm6')),
+        :depends(
+            'Foo::Bar',
+            ('JSON::Foo', 'JSON::Bar:ver<2>'),
+            'Baz:ver<1>:api<*>:auth<foo@bar.net>',
+            {
+                from => "native",
+                name => {
+                    "by-distro.name" => {
+                        "win32"  => "win",
+                        ""       => "unknown",
+                    }
+                }
+            },
+        );
+
     my $expected-depends-depspecs = (
         {:api("*"), :auth(""), :name("Foo::Bar"), :ver("*")},
         (
             {:api("*"), :auth(""), :name("JSON::Foo"), :ver("*")},
             {:api("*"), :auth(""), :name("JSON::Bar"), :ver("2")}
         ),
-        {:api("*"), :auth("foo\@bar.net"), :name("Baz"), :ver("1")}
+        {:api("*"), :auth("foo\@bar.net"), :name("Baz"), :ver("1")},
+        {:api("*"), :auth(""), :from("native"), :name($*DISTRO.is-win ?? "win32" !! "unknown"), :ver("*")},
     );
 
     is-deeply depends-depspecs(%dist-meta<depends>.list), $expected-depends-depspecs;

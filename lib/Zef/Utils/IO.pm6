@@ -2,7 +2,6 @@ unit module Zef::Utils::IO;
 
 use Zef::Utils::SystemCommands;
 use Zef::Utils::FileSystem;
-use Zef::Utils::URI;
 
 # Provides the heuristic based build routines zef uses internally.
 # Previously this was done inside a factory class/plugin, but for
