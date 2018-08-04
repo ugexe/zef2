@@ -1,5 +1,6 @@
 unit module Zef::Utils::SystemCommands;
 use Zef::Utils::FileSystem;
+use Zef::URI;
 
 # Provides thin wrappers around various system commands that are
 # launched as an external process. It does not aim to provide a
@@ -31,17 +32,6 @@ my sub quiet-proc(*@_ [$, *@], *%_ [:CWD(:$cwd), :ENV(:%env), *%]) {
 }
 
 
-# Define input in subtypes so our signatures do validation as well as advertise
-# what type of input they take (e.g. avoid calling wget on Zef::Uri::Git urls)
-# TODO: put this somewhere more centralized (maybe Zef.pm6, or a revamped Zef/URI.pm6)
-# XXX: `of Cool` because it might be IO::Path or Str, and can't do `of IO()`
-subset Zef::Uri::Git::Local of Cool where { .chars and $_.IO.child('.git').d }
-subset Zef::Uri::Git of Cool where { .lc.starts-with('git://') or git-repo-uri($_).lc.ends-with('.git') }
-subset Zef::Uri::Http of Cool where { .lc.starts-with('http://') or .lc.starts-with('https://') }
-subset Zef::Uri::Tar of Cool where { .lc.ends-with('.tar.gz') or .lc.ends-with('.tgz') }
-subset Zef::Uri::Zip of Cool where { .lc.ends-with('.zip') }
-
-
 #
 # Below are process spawning routines to do basic IO on the most common types of uris.
 # Each base command has a `has-$name()` method that is cached after it's first execution
@@ -57,7 +47,7 @@ subset Zef::Uri::Zip of Cool where { .lc.ends-with('.zip') }
 our sub has-curl is export { once { so try quiet-proc('curl', '--help').result } }
 
 our proto sub curl(|) is export(:curl) {*}
-multi sub curl(Zef::Uri::Http:D $url, IO() $save-to) {
+multi sub curl(Zef::URI::Http:D $url, IO() $save-to) {
     my $cwd := $save-to.parent;
     return quiet-proc(:$cwd, 'curl', '--silent', '-L', '-A', $USERAGENT, '-z', $save-to.absolute, '-o', $save-to.absolute, $url);
 }
@@ -67,7 +57,7 @@ multi sub curl(Zef::Uri::Http:D $url, IO() $save-to) {
 our sub has-wget is export { once { try quiet-proc('wget', '--help').result.so } }
 
 our proto sub wget(|) is export(:wget) {*}
-multi sub wget(Zef::Uri::Http:D $url, IO() $save-to) {
+multi sub wget(Zef::URI::Http:D $url, IO() $save-to) {
     my $cwd := $save-to.parent;
     return quiet-proc(:$cwd, 'wget', '-N', qq|--user-agent="{$USERAGENT}"|, '-P', $cwd, '--quiet', $url, '-O', $save-to.absolute);
 }
@@ -173,8 +163,8 @@ multi sub p5tar-list(IO() $archive-file) {
 # as a single revision, e.g. we make a new clone for any revision so that there is less chance
 # the repo state gets changed unexpectedly (we really want shallow clones of specific commits I think?)
 our sub has-git is export { once { so try quiet-proc('git', '--help').result } }
-sub git-repo-uri(Str() $uri) { with $uri.split(/\.git[\/]?/, :v) { .elems == 1 ?? ~$_ !! .elems == 2 ?? $_.join !! $_.head(*-1).join } }
-sub git-checkout-name(Str() $uri) { with $uri.split(/\.git[\/]?/, :v) { ~($_.tail.match(/\@(.*)[\/|\@|\?|\#]?/)[0] // 'HEAD') } }
+our sub git-repo-uri(Str() $uri) { with $uri.split(/\.git[\/]?/, :v) { .elems == 1 ?? ~$_ !! .elems == 2 ?? $_.join !! $_.head(*-1).join } }
+our sub git-checkout-name(Str() $uri) { with $uri.split(/\.git[\/]?/, :v) { ~($_.tail.match(/\@(.*)[\/|\@|\?|\#]?/)[0] // 'HEAD') } }
 
 # commands that get used for git-download, git-extract, git-list-files
 my sub git-clone($url, IO() $save-to) {
@@ -225,7 +215,7 @@ my sub git-ls-tree(IO() $repo-path, $rev-sha1) {
 
 # FETCH
 our proto git-download(|) is export(:git) {*}
-multi sub git-download(Zef::Uri::Git:D $url, IO() $save-to, $sha1?) {
+multi sub git-download(Zef::URI::Git:D $url, IO() $save-to, $sha1?) {
     await git-clone(git-repo-uri($url), $save-to);
     return git-fetch( $save-to );
 }
@@ -269,7 +259,7 @@ multi sub git-list-files(IO() $repo-path, IO() $rev-sha1) {
 our sub has-powershell is export { once { so try quiet-proc('powershell', '-help').result } }
 
 our proto sub powershell-download(|) is export(:powershell) {*}
-multi sub powershell-download(Zef::Uri::Http:D $url, IO() $save-to) {
+multi sub powershell-download(Zef::URI::Http:D $url, IO() $save-to) {
     my $cwd := $save-to.parent;
     my $script = q<
             Param (

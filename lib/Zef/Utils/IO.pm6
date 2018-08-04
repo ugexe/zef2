@@ -2,6 +2,7 @@ unit module Zef::Utils::IO;
 
 use Zef::Utils::SystemCommands;
 use Zef::Utils::FileSystem;
+use Zef::URI;
 
 # Provides the heuristic based build routines zef uses internally.
 # Previously this was done inside a factory class/plugin, but for
@@ -19,19 +20,19 @@ our sub FETCH(*@_ [Str() $uri, IO() $save-to]) is export {
         unless $save-to.parent.d || mkdir($save-to.parent);
 
     my $promise = do given $uri {
-        when Zef::Uri::Git {
+        when Zef::URI::Git {
             proceed unless has-git();
             &Zef::Utils::SystemCommands::git-download(|@_)
         }
-        when Zef::Uri::Http {
+        when Zef::URI::Http {
             proceed unless has-curl();
             &Zef::Utils::SystemCommands::curl(|@_)
         }
-        when Zef::Uri::Http {
+        when Zef::URI::Http {
             proceed unless has-wget();
             &Zef::Utils::SystemCommands::wget(|@_)
         }
-        when Zef::Uri::Http {
+        when Zef::URI::Http {
             proceed unless has-powershell();
             &Zef::Utils::SystemCommands::powershell-download(|@_)
         }
@@ -53,23 +54,23 @@ our sub EXTRACT(*@_ [IO() $archive, IO() $extract-to]) is export {
         unless $extract-to.d || mkdir($extract-to);
 
     my $promise = do given $archive {
-        when Zef::Uri::Git::Local {
+        when Zef::URI::Git::Local {
             proceed unless has-git();
             &Zef::Utils::SystemCommands::git-extract(|@_)
         }
-        when Zef::Uri::Tar {
+        when Zef::URI::Tar {
             proceed unless has-tar();
             &Zef::Utils::SystemCommands::tar-extract(|@_)
         }
-        when Zef::Uri::Tar {
+        when Zef::URI::Tar {
             proceed unless has-p5tar();
             &Zef::Utils::SystemCommands::p5tar-extract(|@_)
         }
-        when Zef::Uri::Zip {
+        when Zef::URI::Zip {
             proceed unless has-unzip();
             &Zef::Utils::SystemCommands::unzip-extract(|@_)
         }
-        when Zef::Uri::Zip {
+        when Zef::URI::Zip {
             proceed unless has-powershell();
             &Zef::Utils::SystemCommands::powershell-unzip(|@_)
         }
@@ -89,23 +90,23 @@ our sub PATHS(*@_ [IO() $path]) is export {
         unless $path.e;
 
     my $promise = do given $path {
-        when Zef::Uri::Git::Local {
+        when Zef::URI::Git::Local {
             proceed unless has-git();
             &Zef::Utils::SystemCommands::git-list-files(|@_)
         }
-        when Zef::Uri::Tar {
+        when Zef::URI::Tar {
             proceed unless has-tar();
             &Zef::Utils::SystemCommands::tar-list(|@_)
         }
-        when Zef::Uri::Tar {
+        when Zef::URI::Tar {
             proceed unless has-p5tar();
             &Zef::Utils::SystemCommands::p5tar-list(|@_)
         }
-        when Zef::Uri::Zip {
+        when Zef::URI::Zip {
             proceed unless has-unzip();
             &Zef::Utils::SystemCommands::unzip-list(|@_)
         }
-        when Zef::Uri::Zip {
+        when Zef::URI::Zip {
             proceed unless has-powershell();
             &Zef::Utils::SystemCommands::powershell-unzip-list(|@_)
         }

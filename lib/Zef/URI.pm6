@@ -125,9 +125,10 @@ my grammar RFC8089 is RFC3986 {
     }
 }
 
-grammar Zef::IO::URI {
+my grammar Grammar::URI {
     method parse($uri, |c) {
-        nextwith($uri.subst('\\','/',:g), |c);
+        # normalize windows paths to be more unixy, and tweak ssh uris to allow the grammar to match
+        nextwith(($uri.starts-with('git://' | 'ssh://') ?? $uri.subst(/\:/, "/", :nth(2)) !! $uri).subst('\\','/',:g), |c);
     }
     token TOP {
         || <RFC8089::file-URI>
@@ -135,3 +136,10 @@ grammar Zef::IO::URI {
         || <RFC3986::URI-reference>
     }
 }
+
+subset Zef::URI where { so Grammar::URI.parse($_) }
+subset Zef::URI::Git::Local of Zef::URI where { .chars and $_.IO.child('.git').d }
+subset Zef::URI::Git        of Zef::URI where { .lc.starts-with('git://') or do { require ::("Zef::Utils::SystemCommands"); (&::("Zef::Utils::SystemCommands")::git-repo-uri($_) // '').lc.ends-with('.git') } }
+subset Zef::URI::Http       of Zef::URI where { .lc.starts-with('http://') or .lc.starts-with('https://') }
+subset Zef::URI::Tar        of Zef::URI where { .lc.ends-with('.tar.gz') or .lc.ends-with('.tgz') }
+subset Zef::URI::Zip        of Zef::URI where { .lc.ends-with('.zip') }
